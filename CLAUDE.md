@@ -83,11 +83,22 @@ decoding the new matrix would make that test vacuous.**
 
 ## Still to do before this goes public
 
-1. Deploy and confirm `pollen.rijdho.org` serves, then set the GitHub About block
-   (description, homepage, topics) per the root conventions.
-2. Run the leak sweep over the working tree **and the full history** before flipping
-   visibility.
-3. Regenerate the screenshots against the deployed URL, so they stop showing
-   `127.0.0.1:8788`.
-4. Connect Zenodo, cut v1.0.0, then add the DOI badge, `CITATION.cff` and the README
-   `## Citation` section as the closing section.
+Done already: deployed to `pollen.rijdho.org` and verified in a browser (headings at 800,
+tabular figures, the policy breached on purpose, and no request to any other origin), and
+the GitHub About block is set with description, homepage and six topics.
+
+1. Run the leak sweep over the working tree **and the full history** before flipping
+   visibility. The working tree is clean; the history has never been swept.
+2. Regenerate the screenshots against the deployed URL, so they stop showing
+   `127.0.0.1:8788`: `POLLEN_BASE=https://pollen.rijdho.org npm run screenshots`, which
+   opens and then deletes one real room.
+3. Connect Zenodo (press **Sync now**, the list is cached), cut v1.0.0, then add the DOI
+   badge, `CITATION.cff` and the README `## Citation` section as the closing section.
+
+## Worth doing, not yet done
+
+- **Questions cannot be added to a room that is already open.** The set is fixed when the
+  object is created. Appending one is a small admin action plus a broadcast, and it is the
+  first thing someone mid-session will want.
+- The presenter view has no way back to a room from another device. That is inherent to
+  having no accounts, but a printable or copyable recovery link would soften it.
