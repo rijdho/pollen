@@ -10,6 +10,11 @@ export const LIMITS = {
     maxQuestions: 20,
     ttlHours: 12,          // the room deletes itself; see Room.alarm()
     maxVoters: 500,        // distinct voter tokens per room
+    // Sockets one room will hold. Without a ceiling, anyone holding a code
+    // could open them by the thousand: each connection and each pushed message
+    // is a billed request, so an open room was a way to spend someone else's
+    // daily allowance. Comfortably above maxVoters, because phones reconnect.
+    maxSockets: 700,
   },
   prompt: {
     maxChars: 200,

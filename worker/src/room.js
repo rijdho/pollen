@@ -377,6 +377,9 @@ export class Room {
 
     if (op === 'follow') {
       if (request.headers.get('Upgrade') !== 'websocket') return json({ error: 'expected_websocket' }, 426);
+      if (this.ctx.getWebSockets().length >= LIMITS.room.maxSockets) {
+        return json({ error: 'room_full' }, 429);
+      }
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1]);
       pair[1].serializeAttachment({ role: 'follower' });
@@ -401,6 +404,9 @@ export class Room {
 
     if (op === 'live') {
       if (request.headers.get('Upgrade') !== 'websocket') return json({ error: 'expected_websocket' }, 426);
+      if (this.ctx.getWebSockets().length >= LIMITS.room.maxSockets) {
+        return json({ error: 'room_full' }, 429);
+      }
       const pair = new WebSocketPair();
       // Hibernation: the object is evicted from memory between votes and is
       // not billed for duration while it sleeps. A 90-minute workshop with a

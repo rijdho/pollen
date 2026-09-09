@@ -22,6 +22,20 @@ All notable changes to this project are documented here. The format follows
   dictionaries and the asset graph, plus a 56-check script that drives a running
   Worker end to end.
 
+### Security
+
+- `Strict-Transport-Security` added. Cloudflare does not send it unless it is
+  switched on in the dashboard, and nothing here had checked; the header now
+  lives in `public/_headers` with the rest of the policy so it travels with the
+  repository.
+- A room now refuses sockets past seven hundred. Without a ceiling, anyone
+  holding a room code could open connections by the thousand, and since every
+  connection and every pushed message is a billed request, an open room was a
+  way to spend the account's daily allowance.
+- The README now states plainly what is defended and what is not, including that
+  a script can fill a room to its device ceiling and that no rate limit tight
+  enough to stop it would leave a lecture hall able to join.
+
 ### Fixed
 
 - The creation limit charged for attempts that never opened a room, so a run of

@@ -12,8 +12,13 @@
 #
 # connect-src 'self' covers the WebSocket, because 'self' matches ws: and wss:
 # on the page's own origin. Verify that in a browser rather than trusting it.
+#
+# HSTS is here rather than left to the Cloudflare dashboard, so it lives with
+# the rest of the policy and travels with the repository. No preload: that is a
+# commitment for the whole apex domain and is not this page's to make.
 /*
   Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Cross-Origin-Opener-Policy: same-origin

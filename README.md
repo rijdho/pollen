@@ -158,13 +158,37 @@ WebSocket and `element.style` sizing kept working.
 Inter is self-hosted. No font CDN is linked here, ever: it would send every visitor's IP
 to that host, and a strict `font-src` blocks it silently anyway.
 
+### What is defended, and what is not
+
+Enforced: a Content-Security-Policy starting at `default-src 'none'` with `frame-ancestors`,
+HSTS, `nosniff`, `no-referrer` and a `Permissions-Policy` that turns off every device API;
+the admin key compared in constant time; every participant input re-checked and folded on
+the server; twenty answers a minute per device; five hundred devices and seven hundred
+sockets per room; thirty rooms an hour per address; and no third-party request of any kind,
+which is verifiable in a browser's network panel rather than taken on trust.
+
+Not defended, deliberately: **who** is answering. See the first caveat below. The tool also
+has no bot detection and no CAPTCHA, because both would mean either a third-party script or
+a fingerprint, and this page has neither.
+
+One honest wrinkle: a browser cannot set headers on a WebSocket handshake, so the
+presenter's key travels in the query string for that one request. It is otherwise sent as a
+header. `Referrer-Policy: no-referrer` keeps it out of referrers, but it can appear in edge
+logs, which is a real difference from the header path and is written down here rather than
+glossed over.
+
 ## Caveats
 
 - **A device token is not an identity.** It stops accidental double voting and gives an
   honest count of how many devices answered. Anyone who wants to vote twice can clear
-  their browser storage or open a private window. There is no way around that without
-  accounts, and accounts are the thing this tool exists to avoid. Do not use it where the
-  result has consequences.
+  their browser storage or open a private window, and anyone willing to write a script can
+  mint fresh tokens and fill a room to its 500-device ceiling, whether to stuff the result
+  or simply to leave no room for anybody else. Rate limits slow that down; they do not stop
+  it. There is no way around it without accounts, and accounts are the thing this tool
+  exists to avoid. **Do not use it where the result has consequences.** A limit tight
+  enough to stop a script would also turn away a lecture hall arriving at once, which is
+  the case this exists to serve, so that trade has been made deliberately and in this
+  direction.
 - **Anyone with the code can answer.** The code is the only barrier and it is on a screen
   in a public room. It is six characters from a 28-character alphabet, so it cannot
   usefully be guessed from outside, but it is not a secret.
