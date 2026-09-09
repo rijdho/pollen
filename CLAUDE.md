@@ -84,15 +84,22 @@ decoding the new matrix would make that test vacuous.**
 ## Still to do before this goes public
 
 Done already: deployed to `pollen.rijdho.org` and verified in a browser (headings at 800,
-tabular figures, the policy breached on purpose, and no request to any other origin), and
-the GitHub About block is set with description, homepage and six topics.
+tabular figures, the policy breached on purpose, and no request to any other origin); the
+GitHub About block is set with description, homepage and six topics; and the leak sweep has
+been run over the working tree **and the full object history**, every hit read rather than
+skimmed. All six were benign: the AGPL's own wording about passwords, a README sentence
+saying the room code is not a secret, and the `wrangler.toml` comment stating that this
+Worker is never on the workers.dev namespace.
 
-1. Run the leak sweep over the working tree **and the full history** before flipping
-   visibility. The working tree is clean; the history has never been swept.
-2. Regenerate the screenshots against the deployed URL, so they stop showing
+Run the history sweep again before flipping visibility, since commits will have been added.
+Run it in `bash`: in `zsh` the `while read` loop yields nothing, which reads exactly like a
+clean repo. And do not name the loop variable `path` in `zsh`, which is bound to `PATH` and
+empties it mid-loop.
+
+1. Regenerate the screenshots against the deployed URL, so they stop showing
    `127.0.0.1:8788`: `POLLEN_BASE=https://pollen.rijdho.org npm run screenshots`, which
    opens and then deletes one real room.
-3. Connect Zenodo (press **Sync now**, the list is cached), cut v1.0.0, then add the DOI
+2. Connect Zenodo (press **Sync now**, the list is cached), cut v1.0.0, then add the DOI
    badge, `CITATION.cff` and the README `## Citation` section as the closing section.
 
 ## Worth doing, not yet done
