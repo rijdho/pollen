@@ -68,6 +68,9 @@ async function route(request, env, url) {
     if (!voter) return json({ error: 'no_voter' }, 400);
     return forward(room, 'nick', { voter }, request);
   }
+  if (action === 'results' && request.method === 'GET') {
+    return forward(room, 'results', { idx: url.searchParams.get('idx') || '0' }, request);
+  }
   if (action === 'qa' && request.method === 'GET') {
     return forward(room, 'qa', { voter: voterOf(request), idx: url.searchParams.get('idx') || '0' }, request);
   }

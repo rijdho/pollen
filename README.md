@@ -25,15 +25,21 @@ with 5, the leader picked out in violet.](docs/presenter-choice.png)
 
 ## What it does
 
-Four kinds of question, added when the room is created or at any point while it is
+Five kinds of question, added when the room is created or at any point while it is
 running:
 
 - **Multiple choice.** Up to eight options, single or multiple selection. Bars with whole
   percentages that add up to exactly 100.
 - **Rating scale.** Two to ten steps with labels at each end. Histogram with the mean
   drawn where it actually falls, plus the median and the number of answers.
-- **Word cloud.** One to three short entries per person, merged by spelling, sized and
-  weighted by how often they were said.
+- **Word cloud.** One to three short entries per person, merged by spelling, then packed on
+  a spiral so it reads as a cloud rather than a list. Two words never overlap; one that
+  cannot be fitted is reported rather than dropped in silence. The layout is deterministic,
+  which matters more than it sounds: the screen redraws on every vote, and a cloud that
+  reshuffles each time is unreadable.
+- **Ranking.** Two to eight things put in order, reordered on the phone with buttons rather
+  than by dragging, which competes with the page's own scrolling and loses. The projector
+  shows the average position each one was put in.
 - **Audience questions.** The room writes the questions and supports each other's; the
   presenter sees them ordered by support and answers the ones that rise.
 
@@ -56,10 +62,15 @@ at 3.9.](docs/presenter-scale.png)
 The presenter moves the room from one question to the next, can stop and reopen answers,
 clear a question, download the results as JSON, or end the session and delete everything.
 
-![The projected screen during a word cloud. The words Access, Reuse, Transparency, Funding
-and Rigour are centred and sized by how often each was said, with a small count beside the
-three commonest, and an amber panel below holds two entries waiting for approval, Trust and
-Slower, each with a Show and a Hide button.](docs/presenter-cloud.png)
+Results stay on the projector by default. A question can be set to show its tally on the
+phones as well; that costs one extra request per person per question, which is affordable,
+and the setting says so where it is switched on.
+
+Results download as JSON or as CSV.
+
+![The projected screen during a word cloud. Access, Transparency, Reuse and Funding are the
+largest, packed together with smaller words around and between them, several set vertically,
+none overlapping.](docs/presenter-cloud.png)
 
 ### Keeping your work without an account
 
@@ -76,11 +87,19 @@ edge logs and out of referrers; the page claims it, writes it to that device and
 from the address bar. Anyone holding that link controls the room, and the button that
 copies it says so.
 
-### Free-text answers wait for approval
+### What the room types
 
-Whatever a room types goes on a wall in front of everyone, so word-cloud entries are held
-in a queue until the presenter approves them, one by one. It defaults to on, and turning
-it off is a deliberate act by the person standing next to the screen.
+Whatever a room types goes on a wall in front of everyone, so the two free-text types treat
+that differently.
+
+**Word cloud entries go straight to the screen.** They are one to three words, already
+folded as below, and holding each one for approval turned every cloud into a queue the
+presenter had to work through while the room waited. Approval is still there per question,
+off unless asked for, for a room you do not know.
+
+**Audience questions wait for approval by default.** They are whole sentences, long enough
+to say something you would not want on a wall, and the presenter is going to read them out
+anyway.
 
 Entries are folded before a moderator ever sees them: bidirectional override characters
 are stripped, because they reorder what is *displayed* without changing the string, so a
@@ -152,10 +171,10 @@ their browser's local storage and nowhere else.
 ## Tests
 
 ```bash
-npm test          # 45 unit tests, no dependencies, Node's own runner
+npm test          # 59 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
-npm run live      # 93 end-to-end checks against the running Worker
-npm run ui        # 18 checks driving the real pages in a real browser
+npm run live      # 101 end-to-end checks against the running Worker
+npm run ui        # 23 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
@@ -254,6 +273,9 @@ glossed over.
   appears. Leave it on.
 - **Twelve hours, then it is gone.** Download the results during or after the session.
   Nothing is recoverable afterwards, including by the person who ran it.
+- **A cloud that is full drops words.** When more answers arrive than fit on the screen,
+  the least common ones are left out and the screen says how many. They are still in the
+  download.
 - **Word clouds flatten meaning.** Merging by spelling puts "access" and "Access" in one
   bubble, and leaves "open access" and "access" in two. The size of a word says how often
   it was typed and nothing else.

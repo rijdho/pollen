@@ -74,7 +74,10 @@ room. `own` is computed per request, so each viewer learns only about their own 
   `/fonts/*` both land on a font and the browser takes the first, so the fonts revalidated
   on every load while the header claimed `immutable`. Only `/fonts/*` sets it.
 - **DOM `append()` stringifies its arguments.** A conditional child written as `x && node`
-  puts a literal `false` on the page. `el()` in `ui.js` filters falsy children; use it.
+  puts a literal `false` on the page. `el()` filters falsy children and `appendAll()` does
+  the same for lists built outside it; never call `node.append(...)` with a maybe-null.
+  This reached a screen twice, so `tests/ui.mjs` now fails on any of `null`, `undefined`,
+  `false`, `NaN` or `[object Object]` appearing as a word on either page.
 - **Do not run one `python3 -c` replace across two functions that share a line.** The qa
   and cloud writers had identical `INSERT` statements; an unbounded `.replace` patched both
   and left the cloud path referring to a variable that only exists in the other. It failed
@@ -128,11 +131,25 @@ empties it mid-loop.
 one. It is the only thing that checks the pages are wired to the contract the other two
 prove.
 
+## The cloud layout
+
+`shared/cloudlayout.js` places words on an Archimedean spiral and refuses to overlap. Two
+properties are load-bearing and both are pinned by tests:
+
+- **Deterministic.** The projected screen redraws on every vote. A layout with any
+  randomness in it reshuffles the whole cloud each time, which is unreadable however good
+  each frame looks. Positions come from a hash of the word, never from `Math.random`.
+- **Never overlapping.** Two words on top of each other are not a flourish, they are a word
+  nobody can read. A word that will not fit is reported in `dropped` and the screen says how
+  many, rather than being silently lost.
+
+Measurement is injected, so the module has no DOM and the tests use a predictable ruler
+instead of depending on how one font happens to render.
+
 ## Worth doing, not yet done
 
-- Ranking questions (drag five things into an order), which is the one common type still
-  missing.
-- A per-question toggle to show results on phones. It is off by design and the cost model
-  says why, but a small room may be worth the exception, and the toggle should say what it
-  costs rather than hiding it.
-- Results as CSV alongside JSON, for anyone who wants to open them in a spreadsheet.
+- Nothing from the earlier list: ranking, the show-results toggle and CSV are all in.
+- A cloud that is full drops its least common words. They are in the download, and the
+  screen says how many were left out, but a presenter cannot currently see them at all.
+- The scoreboard has no speed bonus. Adding one means trusting a client-reported time or
+  measuring arrival at the object, and the second is the only honest option.

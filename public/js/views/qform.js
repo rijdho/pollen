@@ -7,13 +7,16 @@ import { el, clear } from '../ui.js?v=1';
 import { t } from '../i18n.js?v=1';
 import { LIMITS } from '../shared/limits.js?v=1';
 
-export const QUESTION_TYPES = ['choice', 'scale', 'cloud', 'qa'];
+export const QUESTION_TYPES = ['choice', 'scale', 'rank', 'cloud', 'qa'];
 
 export function blankQuestion(type) {
   if (type === 'choice') return { type, prompt: '', options: ['', ''], multiple: false, correct: [], seconds: 0 };
   if (type === 'scale') return { type, prompt: '', steps: 5, labels: { min: '', max: '' } };
   if (type === 'qa') return { type, prompt: '', moderation: true };
-  return { type, prompt: '', entries: 1, moderation: true };
+  if (type === 'rank') return { type, prompt: '', options: ['', '', ''], seconds: 0, showResults: false };
+  // Off for a cloud, on for audience questions: see prepareQuestion in the
+  // Worker for why the two differ.
+  return { type, prompt: '', entries: 1, moderation: false };
 }
 
 export function typeLabel(type) {
@@ -40,7 +43,60 @@ export function typeFields(q) {
   if (q.type === 'choice') return choiceFields(q);
   if (q.type === 'scale') return scaleFields(q);
   if (q.type === 'qa') return qaFields(q);
+  if (q.type === 'rank') return rankFields(q);
   return cloudFields(q);
+}
+
+/**
+ * Showing the tally on every phone. Off by default and labelled with what it
+ * costs, because it is the one setting here that changes how much traffic a
+ * room makes: one extra request per person per question. That is linear and
+ * affordable; streaming it would not be, which is why this is a fetch after
+ * answering rather than a live feed.
+ */
+export function shareResults(q) {
+  return el('div', { class: 'q-field' }, [
+    checkbox(t('editor.showResults'), q.showResults, (on) => { q.showResults = on; }),
+    el('p', { class: 'hint', text: t('editor.showResultsHint') }),
+  ]);
+}
+
+function rankFields(q) {
+  const box = el('div', { class: 'q-body' });
+  const redraw = () => {
+    clear(box);
+    q.options.forEach((value, k) => {
+      box.append(el('div', { class: 'opt-row' }, [
+        el('span', { class: 'rank-num', text: String(k + 1) }),
+        el('input', {
+          class: 'input', type: 'text', value,
+          maxlength: String(LIMITS.choice.maxOptionChars),
+          'aria-label': t('editor.option', { n: k + 1 }),
+          placeholder: t('editor.option', { n: k + 1 }),
+          onInput: (event) => { q.options[k] = event.target.value; },
+        }),
+        q.options.length > 2
+          ? el('button', {
+            class: 'btn btn-quiet', type: 'button', text: '×', 'aria-label': t('editor.remove'),
+            onClick: () => { q.options.splice(k, 1); redraw(); },
+          })
+          : null,
+      ]));
+    });
+    if (q.options.length < LIMITS.choice.maxOptions) {
+      box.append(el('button', {
+        class: 'btn btn-quiet', type: 'button', text: t('editor.addOption'),
+        onClick: () => { q.options.push(''); redraw(); },
+      }));
+    }
+    box.append(
+      el('p', { class: 'hint', text: t('editor.rankHint') }),
+      timerField(q),
+      shareResults(q),
+    );
+  };
+  redraw();
+  return box;
 }
 
 function choiceFields(q) {
@@ -86,6 +142,7 @@ function choiceFields(q) {
       el('p', { class: 'hint', text: t('editor.correctHint') }),
       checkbox(t('editor.multiple'), q.multiple, (on) => { q.multiple = on; }),
       timerField(q),
+      shareResults(q),
     );
   };
   redraw();
@@ -125,6 +182,7 @@ function scaleFields(q) {
       'aria-label': t('editor.labelMax'), maxlength: String(LIMITS.choice.maxOptionChars),
       onInput: (event) => { q.labels.max = event.target.value; },
     }),
+    shareResults(q),
   ]);
 }
 
@@ -137,7 +195,8 @@ function cloudFields(q) {
       onInput: (event) => { q.entries = Number(event.target.value); },
     }),
     checkbox(t('editor.moderation'), q.moderation, (on) => { q.moderation = on; }),
-    el('p', { class: 'hint', text: t('editor.moderationHint') }),
+    el('p', { class: 'hint', text: t('editor.moderationCloudHint') }),
+    shareResults(q),
   ]);
 }
 

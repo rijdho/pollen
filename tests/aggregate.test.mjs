@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { percentages, tallyChoice, tallyScale, tallyCloud, cloudWeight } from '../public/js/shared/aggregate.js?v=1';
+import { percentages, tallyChoice, tallyScale, tallyCloud, tallyRank, cloudWeight } from '../public/js/shared/aggregate.js?v=1';
 
 test('percentages always sum to exactly 100', () => {
   // The case that makes naive rounding visible on a projector: three equal
@@ -91,4 +91,38 @@ test('cloud weights keep rare words readable', () => {
   assert.equal(cloudWeight(20, 20), 1);
   assert.ok(cloudWeight(1, 20) > 0.2, 'the rarest word stays legible');
   assert.equal(cloudWeight(1, 1), 1, 'a single word is not shrunk');
+});
+
+test('a ranking reports the average position each option was put in', () => {
+  // Three people, three options. A is first twice and second once, so 1.33.
+  const t = tallyRank([[0, 1, 2], [0, 2, 1], [1, 0, 2]], 3);
+  assert.equal(t.n, 3);
+  assert.deepEqual(t.rows, [
+    { index: 0, firsts: 2, average: 1.33 },
+    { index: 1, firsts: 1, average: 2 },
+    { index: 2, firsts: 0, average: 2.67 },
+  ]);
+});
+
+test('a ranking discards an incomplete ordering whole', () => {
+  // Half an ordering is not a weaker opinion, it is a different one, and
+  // counting it would silently weight the options someone did not reach.
+  const t = tallyRank([[0, 1, 2], [0, 1], [0, 1, 1], [0, 1, 9]], 3);
+  assert.equal(t.n, 1, 'only the complete ordering counts');
+  assert.equal(t.rows[0].average, 1);
+});
+
+test('an empty ranking reports nothing rather than a position of zero', () => {
+  const t = tallyRank([], 3);
+  assert.equal(t.n, 0);
+  assert.ok(t.rows.every((r) => r.average === null));
+  assert.deepEqual(t.rows.map((r) => r.index), [0, 1, 2]);
+});
+
+test('two equally ranked options are ordered by first places, then stably', () => {
+  // Both average 1.5; the one put first more often leads.
+  const t = tallyRank([[0, 1], [1, 0]], 2);
+  assert.equal(t.rows[0].average, 1.5);
+  assert.equal(t.rows[1].average, 1.5);
+  assert.deepEqual(tallyRank([[0, 1], [1, 0]], 2), tallyRank([[0, 1], [1, 0]], 2));
 });

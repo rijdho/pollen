@@ -19,13 +19,18 @@ mkdirSync(OUT, { recursive: true });
 const QUESTIONS = [
   { type: 'choice', prompt: 'Which of these worries you most?', options: ['Cost', 'Time', 'Nobody reads it'] },
   { type: 'scale', prompt: 'How clear was that session?', steps: 5, labels: { min: 'Not at all', max: 'Completely' } },
-  { type: 'cloud', prompt: 'One word for open science', entries: 1, moderation: true },
+  { type: 'cloud', prompt: 'One word for open science', entries: 1 },
   { type: 'qa', prompt: 'What should we cover next?', moderation: true },
 ];
 const CHOICES = [[0], [0], [0], [0], [1], [1], [1], [2], [2], [2], [2], [2]]; // 4 / 3 / 5
 const RATINGS = [3, 4, 4, 4, 5, 5, 3, 4, 2, 5, 4, 4]; // mean 3.9, median 4
-const WORDS = ['Reuse', 'reuse', 'REUSE', 'Transparency', 'transparency', 'Access',
-  'access', 'Access', 'Rigour', 'Funding', 'Trust', 'Slower'];
+const WORDS = [
+  'Access', 'access', 'Access', 'Access', 'ACCESS',
+  'Reuse', 'reuse', 'Reuse', 'Reuse',
+  'Transparency', 'transparency', 'Transparency',
+  'Rigour', 'Rigour', 'Funding', 'Funding', 'Trust',
+  'Slower', 'Credit', 'Messy', 'Provenance', 'Licences', 'Care', 'Metadata',
+];
 const ASKED = [
   'How do you fund the repository after the grant ends?',
   'Does this work for a department with no metadata staff?',
@@ -91,15 +96,8 @@ await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { a
 for (const [i, word] of WORDS.entries()) {
   await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(100 + i), body: { idx: 2, value: word } });
 }
-// Approve everything except the last two, so the queue is visibly doing its job.
-const state = await api(`/api/rooms/${code}/state`, { key: adminKey });
-for (const item of state.pending.slice(0, -2)) {
-  await api(`/api/rooms/${code}/admin`, {
-    method: 'POST', key: adminKey,
-    body: { action: 'moderate', payload: { voter: item.voter, seq: item.seq, approve: true } },
-  });
-}
-await shot(presenter, 'presenter-cloud', { width: 1280, height: 900 });
+// No approval queue on a cloud: entries go straight to the screen.
+await shot(presenter, 'presenter-cloud', { width: 1280, height: 1120 });
 
 // Audience questions, moderated and supported, on the projected screen.
 await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 3 } } });

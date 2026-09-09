@@ -116,6 +116,46 @@ export function tallyCloud(entries) {
 }
 
 /**
+ * Ranking. Each vote is a full ordering of the options, so the result is the
+ * average position each one was put in: lower is better, and 1.0 would mean
+ * every single person put it first.
+ *
+ * Ties break on the number of first places and then on the option's own order,
+ * so the board is stable between renders rather than swapping two equal rows
+ * every time a vote lands.
+ *
+ * Incomplete or malformed orderings are discarded whole rather than partially
+ * counted: half an ordering is not a weaker opinion, it is a different one.
+ */
+export function tallyRank(votes, optionCount) {
+  const sums = new Array(optionCount).fill(0);
+  const firsts = new Array(optionCount).fill(0);
+  let n = 0;
+
+  for (const order of votes) {
+    if (!Array.isArray(order) || order.length !== optionCount) continue;
+    const seen = new Set(order.filter((i) => Number.isInteger(i) && i >= 0 && i < optionCount));
+    if (seen.size !== optionCount) continue;
+    order.forEach((option, position) => {
+      sums[option] += position + 1;
+      if (position === 0) firsts[option] += 1;
+    });
+    n += 1;
+  }
+
+  const rows = sums.map((sum, index) => ({
+    index,
+    firsts: firsts[index],
+    average: n === 0 ? null : Math.round((sum / n) * 100) / 100,
+  }));
+  rows.sort((a, b) => {
+    if (a.average === null || b.average === null) return a.index - b.index;
+    return a.average - b.average || b.firsts - a.firsts || a.index - b.index;
+  });
+  return { rows, n };
+}
+
+/**
  * Font weight for a cloud entry, as a 0..1 position between the rarest and the
  * commonest word. Square root, not linear: one word said twenty times in a
  * room of twenty otherwise renders every other word as unreadable dust.

@@ -33,6 +33,19 @@ export function el(tag, props = {}, children = []) {
   return node;
 }
 
+/**
+ * append() that skips nothing-children, for the places that build a list of
+ * nodes outside el(). Calling node.append(x) with a null or false puts the
+ * word "null" on the page, and it has happened twice.
+ */
+export function appendAll(node, children) {
+  for (const child of [].concat(children)) {
+    if (child === null || child === undefined || child === false || child === '') continue;
+    node.append(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+
 export function clear(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
 }

@@ -382,6 +382,41 @@ console.log('a timed question closes itself');
   check('an answer after the time is refused', late.status === 409 && late.data.error === 'time_up', late);
 }
 
+console.log('ranking, and the tally on phones');
+{
+  const added = await call(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey,
+    body: { action: 'add', payload: { question: { type: 'rank', prompt: 'Order these', options: ['Cost', 'Speed', 'Quality'], showResults: true } } },
+  });
+  check('a ranking question can be added', added.status === 200, added);
+  await presenter.next(); await follower.next();
+  const idx = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total - 1;
+  await call(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx } } });
+  await presenter.next(); await follower.next();
+
+  const partial = await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('rank-a'), body: { idx, value: [0, 1] } });
+  check('half an ordering is refused rather than half counted', partial.status === 400 && partial.data.error === 'incomplete_order', partial);
+  const repeated = await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('rank-a'), body: { idx, value: [0, 0, 1] } });
+  check('and so is one that names an option twice', repeated.status === 400, repeated);
+
+  for (const [voter, order] of [['a', [0, 1, 2]], ['b', [0, 2, 1]], ['c', [1, 0, 2]]]) {
+    const r = await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('rank-' + voter), body: { idx, value: order } });
+    if (r.status !== 200) check('a full ordering is accepted', false, r);
+    await presenter.next();
+  }
+  const ranked = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.results;
+  check('the average position is exact', ranked.rows[0].average === 1.33 && ranked.rows[0].index === 0, ranked.rows);
+  check('and the options come back best first',
+    ranked.rows.map((r) => r.index).join(',') === '0,1,2', ranked.rows.map((r) => r.index));
+
+  const shared = await call(`/api/rooms/${code}/results?idx=${idx}`, { voter: who('rank-a') });
+  check('a phone may fetch the tally when the question shares it', shared.status === 200 && shared.data.results.n === 3, shared);
+  check('and the tally it gets carries no device tokens',
+    !JSON.stringify(shared.data).includes(who('rank-a')), shared.data);
+  const hidden = await call(`/api/rooms/${code}/results?idx=0`, { voter: who('rank-a') });
+  check('but not when the question does not', hidden.status === 403, hidden);
+}
+
 console.log('abuse controls');
 {
   const voter = who('flooder');

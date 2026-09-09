@@ -1,8 +1,9 @@
-import { el, clear, status } from '../ui.js?v=1';
+import { el, clear, status, appendAll } from '../ui.js?v=1';
 import { t, locale } from '../i18n.js?v=1';
 import { api, liveSocket, ApiError } from '../api.js?v=1';
 import { qrSvg } from '../qr.js?v=1';
 import { cloudWeight } from '../shared/aggregate.js?v=1';
+import { layoutCloud } from '../shared/cloudlayout.js?v=1';
 import { forget } from '../rooms.js?v=1';
 import { blankQuestion, typeLabel, promptField, typeFields, QUESTION_TYPES } from './qform.js?v=1';
 
@@ -217,12 +218,34 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     }
     if (!data || (data.type === 'choice' && data.responses === 0)
       || (data.type === 'scale' && data.n === 0)
+      || (data.type === 'rank' && data.n === 0)
       || (data.type === 'cloud' && data.items.length === 0)) {
       return el('p', { class: 'stage-idle', text: t('present.noAnswers') });
     }
     if (data.type === 'choice') return choiceChart(question, data);
     if (data.type === 'scale') return scaleChart(question, data);
+    if (data.type === 'rank') return rankChart(data);
     return cloudChart(data);
+  }
+
+  /** Lower is better: the average position the room put each option in. */
+  function rankChart(data) {
+    const worst = data.options.length;
+    return el('ol', { class: 'rank-board' }, data.rows.map((row, i) => el('li', {
+      class: i === 0 ? 'rank-board-item leading' : 'rank-board-item',
+    }, [
+      el('span', { class: 'rank-board-pos', text: String(i + 1) }),
+      el('span', { class: 'rank-board-label', text: data.options[row.index] }),
+      el('span', { class: 'rank-board-track' }, [
+        el('span', {
+          class: 'rank-board-fill',
+          // A bar that grows as the average improves, so first place is the
+          // longest rather than the shortest.
+          style: { width: (((worst - row.average) / (worst - 1)) * 100).toFixed(1) + '%' },
+        }),
+      ]),
+      el('span', { class: 'rank-board-avg', text: t('present.rankAverage', { value: row.average }) }),
+    ])));
   }
 
   const LETTERS = 'ABCDEFGH';
@@ -299,34 +322,97 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     ]);
   }
 
+  // One canvas, reused, purely to ask the browser how wide a word will be at a
+  // given size. Nothing is ever drawn on it.
+  let ruler = null;
+  function measureWord(text, size) {
+    if (!ruler) ruler = document.createElement('canvas').getContext('2d');
+    const font = getComputedStyle(document.body).getPropertyValue('--disp').trim();
+    ruler.font = `700 ${size}px ${font}`;
+    // Cap height plus a little, rather than the full line box: word clouds pack
+    // by the ink, not by the leading.
+    return { w: ruler.measureText(text).width, h: size * 0.78 };
+  }
+
+  // The layout box is fixed and the SVG scales to fit it, so the same answers
+  // make the same cloud on a laptop and on a projector.
+  const CLOUD_BOX = { width: 1200, height: 520 };
+
   function cloudChart(data) {
     const max = data.items[0]?.count || 1;
-    return el('div', { class: 'cloud' }, data.items.map((item, i) => {
-      const weight = cloudWeight(item.count, max);
-      // Weight rides with the count as well as size, so the busiest words read
-      // as heavier and not merely bigger.
-      return el('span', {
-        class: 'cloud-word',
-        style: {
-          fontSize: (1.1 + weight * 2.9).toFixed(2) + 'rem',
-          fontWeight: String(Math.round(500 + weight * 300)),
-          opacity: (0.6 + weight * 0.4).toFixed(2),
-        },
-        title: t('present.responses', { n: item.count }),
-      }, [
-        item.label,
-        // A number beside every word is noise. Beside the few that lead, it is
-        // the thing the room wants to know.
-        item.count > 1 && i < 3
-          ? el('span', { class: 'cloud-word-count', text: String(item.count) })
-          : null,
-      ]);
-    }));
+    const { placed, dropped } = layoutCloud(data.items, {
+      ...CLOUD_BOX,
+      measure: measureWord,
+      minSize: 24,
+      maxSize: 132,
+    });
+
+    // A spiral fills the middle and leaves the corners empty, so the drawing is
+    // always smaller than the box it was laid out in. Cropping the viewBox to
+    // what was actually placed lets the cloud fill the screen instead of
+    // floating in the middle of its own padding.
+    const margin = 8;
+    const bounds = placed.reduce((box, w) => ({
+      minX: Math.min(box.minX, w.x - w.w / 2),
+      maxX: Math.max(box.maxX, w.x + w.w / 2),
+      minY: Math.min(box.minY, w.y - w.h / 2),
+      maxY: Math.max(box.maxY, w.y + w.h / 2),
+    }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+    const view = placed.length === 0
+      ? { x: 0, y: 0, w: CLOUD_BOX.width, h: CLOUD_BOX.height }
+      : {
+        x: bounds.minX - margin,
+        y: bounds.minY - margin,
+        w: bounds.maxX - bounds.minX + margin * 2,
+        h: bounds.maxY - bounds.minY + margin * 2,
+      };
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`);
+    svg.setAttribute('class', 'cloud-svg');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', data.items.map((i) => `${i.label} ${i.count}`).join(', '));
+
+    for (const word of placed) {
+      const node = document.createElementNS(NS, 'text');
+      node.setAttribute('x', '0');
+      node.setAttribute('y', '0');
+      node.setAttribute('transform',
+        `translate(${word.x.toFixed(1)} ${word.y.toFixed(1)})` + (word.rotate ? ` rotate(${word.rotate})` : ''));
+      node.setAttribute('text-anchor', 'middle');
+      node.setAttribute('dominant-baseline', 'central');
+      node.setAttribute('font-size', String(word.size));
+      // Weight and opacity ride with the count as well as size, so the busiest
+      // words read as heavier and not merely bigger.
+      const weight = cloudWeight(word.count, max);
+      node.setAttribute('font-weight', String(Math.round(500 + weight * 300)));
+      node.setAttribute('opacity', (0.55 + weight * 0.45).toFixed(2));
+      node.setAttribute('fill', 'currentColor');
+      node.textContent = word.label;
+      const title = document.createElementNS(NS, 'title');
+      title.textContent = t('present.responses', { n: word.count });
+      node.append(title);
+      svg.append(node);
+    }
+
+    return el('div', { class: 'cloud' }, [
+      svg,
+      // Said out loud rather than swallowed: a word that could not be fitted is
+      // an answer somebody gave and nobody can see.
+      dropped.length > 0
+        ? el('p', { class: 'hint', text: t('present.cloudDropped', { n: dropped.length }) })
+        : null,
+    ]);
   }
 
   function drawQueue() {
     const items = state.pending || [];
-    queue.hidden = !state.question || !['cloud', 'qa'].includes(state.question.type);
+    // Only where approval is actually switched on. A queue that says "nothing
+    // waiting" under a question that never waits for anything is furniture.
+    queue.hidden = !state.question
+      || !['cloud', 'qa'].includes(state.question.type)
+      || !state.question.spec?.moderation;
     if (queue.hidden) return;
     clear(queue);
     // The status colouring belongs to a queue that has something in it. An
@@ -348,7 +434,10 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     clear(controls);
     const at = state.current;
     const last = state.total - 1;
-    controls.append(
+    // appendAll, not append: the reveal button is null on a question with no
+    // right answer, and append() would write the word "null" between two real
+    // buttons.
+    appendAll(controls, [
       el('button', { class: 'btn', type: 'button', text: t('present.prev'), disabled: at <= 0, onClick: () => act('goto', { idx: at - 1 }) }),
       el('button', {
         class: 'btn btn-brand', type: 'button',
@@ -373,11 +462,12 @@ export function renderPresent(root, { code, adminKey, onHome }) {
         })
         : null,
       el('button', { class: 'btn btn-quiet', type: 'button', text: t('present.export'), onClick: download }),
+      el('button', { class: 'btn btn-quiet', type: 'button', text: t('present.exportCsv'), onClick: downloadCsv }),
       el('button', {
         class: 'btn btn-quiet', type: 'button', text: t('present.close'),
         onClick: () => { if (confirm(t('present.closeConfirm'))) act('close'); },
       }),
-    );
+    ]);
   }
 
   function formatTime(stamp) {
@@ -388,16 +478,61 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     }
   }
 
+  /**
+   * The same export as a spreadsheet. One long table with a `section` column
+   * rather than several sheets, because a CSV has no sheets and splitting it
+   * into several files is worse than one that opens.
+   */
+  function toCsv(data) {
+    const cell = (v) => {
+      const text = v === null || v === undefined ? '' : String(v);
+      return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+    };
+    const rows = [['question', 'prompt', 'type', 'item', 'count', 'detail']];
+    data.questions.forEach((q, i) => {
+      const n = i + 1;
+      const r = q.results;
+      if (r.type === 'choice') {
+        r.options.forEach((label, k) => rows.push([n, q.prompt, q.type, label, r.counts[k], r.percentages[k] + '%']));
+      } else if (r.type === 'scale') {
+        r.histogram.forEach((count, k) => rows.push([n, q.prompt, q.type, k + 1, count, '']));
+        rows.push([n, q.prompt, q.type, 'mean', '', r.mean]);
+        rows.push([n, q.prompt, q.type, 'median', '', r.median]);
+      } else if (r.type === 'rank') {
+        r.rows.forEach((row, place) => rows.push([n, q.prompt, q.type, r.options[row.index], row.firsts, 'average ' + row.average + ', place ' + (place + 1)]));
+      } else if (r.type === 'cloud') {
+        r.items.forEach((item) => rows.push([n, q.prompt, q.type, item.label, item.count, '']));
+      } else if (r.type === 'qa') {
+        r.items.forEach((item) => rows.push([n, q.prompt, q.type, item.text, item.votes, '']));
+      }
+    });
+    if (data.scores) {
+      data.scores.rows.forEach((row) => rows.push(['', 'scoreboard', 'score', row.nick, row.score, 'of ' + data.scores.of]));
+    }
+    return rows.map((row) => row.map(cell).join(',')).join('\r\n');
+  }
+
+  function save(text, mime, extension) {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = el('a', { href: url, download: `pollen-${code}.${extension}` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadCsv() {
+    try {
+      save(toCsv(await api.exportResults(code, adminKey)), 'text/csv;charset=utf-8', 'csv');
+    } catch (err) {
+      status(message, t('error.' + (err instanceof ApiError ? err.code : 'internal')), 'error');
+    }
+  }
+
   async function download() {
     try {
-      const data = await api.exportResults(code, adminKey);
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = el('a', { href: url, download: `pollen-${code}.json` });
-      document.body.append(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      save(JSON.stringify(await api.exportResults(code, adminKey), null, 2), 'application/json', 'json');
     } catch (err) {
       status(message, t('error.' + (err instanceof ApiError ? err.code : 'internal')), 'error');
     }

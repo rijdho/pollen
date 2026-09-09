@@ -54,7 +54,7 @@ const built = await page.evaluate(async () => {
     questions: document.querySelectorAll('.q-card').length,
   };
 });
-ok('all four question types are offered', built.types.length === 4, built.types);
+ok('every question type is offered', built.types.length === 5, built.types);
 ok('a set can be saved to the device', built.saved === 1, built);
 
 await page.evaluate(async () => {
@@ -165,6 +165,69 @@ ok('an audience question waits for approval', moderated.queued.length === 1, mod
 ok('and reaches the projector once approved', moderated.board.length === 1, moderated.board);
 
 
+// Ranking, ordered from a phone with the buttons rather than by dragging.
+console.log('');
+await page.evaluate(async () => {
+  const open = document.querySelector('.adder');
+  open.open = true;
+  await new Promise((r) => setTimeout(r, 150));
+  [...open.querySelectorAll('.actions .btn')].find((b) => b.textContent.match(/Ranking|Reihenfolge|Ordenar/)).click();
+  await new Promise((r) => setTimeout(r, 200));
+  const type = (n, v) => { n.value = v; n.dispatchEvent(new Event('input', { bubbles: true })); };
+  type(open.querySelector('input[type=text]'), 'Order these');
+  const opts = open.querySelectorAll('.opt-row input[type=text]');
+  type(opts[0], 'Cost'); type(opts[1], 'Speed'); type(opts[2], 'Quality');
+  // Share the tally with the phones, which is off unless asked for.
+  [...open.querySelectorAll('.check input')].pop().click();
+  [...open.querySelectorAll('.btn-lg')].pop().click();
+  await new Promise((r) => setTimeout(r, 600));
+  const last = document.querySelectorAll('.controls .btn');
+  // Walk to the question just added.
+  for (let i = 0; i < 6; i += 1) {
+    const next = [...last].find((b) => b.textContent.match(/^Next|Weiter|Siguiente/));
+    if (!next || next.disabled) break;
+    next.click();
+    await new Promise((r) => setTimeout(r, 250));
+  }
+});
+const ranking = await phone.evaluate(async () => {
+  await new Promise((r) => setTimeout(r, 900));
+  const items = [...document.querySelectorAll('.rank-item .rank-label')].map((n) => n.textContent);
+  if (items.length === 0) return { items };
+  // Move the last option to the top with its own button.
+  const ups = [...document.querySelectorAll('.rank-item .rank-tools .btn')].filter((b) => b.textContent === '↑');
+  ups[ups.length - 1].click();
+  await new Promise((r) => setTimeout(r, 150));
+  const after = [...document.querySelectorAll('.rank-item .rank-label')].map((n) => n.textContent);
+  document.querySelector('.btn-block').click();
+  await new Promise((r) => setTimeout(r, 900));
+  return { items, after, results: document.querySelector('.phone-results')?.textContent || null };
+});
+// One press moves one place, which is the whole point of buttons over a drag.
+ok('a phone can reorder a ranking with the buttons',
+  ranking.items.length === 3
+  && ranking.after[1] === ranking.items[2]
+  && ranking.after[2] === ranking.items[1], ranking);
+ok('and sees the tally when the question shares it',
+  typeof ranking.results === 'string' && ranking.results.length > 0, ranking.results);
+
+const rankBoard = await page.evaluate(async () => {
+  await new Promise((r) => setTimeout(r, 600));
+  return [...document.querySelectorAll('.rank-board-item')].map((i) => i.textContent);
+});
+ok('and the projector shows the average position', rankBoard.length === 3, rankBoard);
+
+// Nothing on either page ever reads as a stringified nothing. DOM append()
+// turns a null child into the word "null", and it has reached a screen twice.
+for (const [name, target] of [['the projector', page], ['the phone', phone]]) {
+  const stray = await target.evaluate(() => {
+    const text = document.body.innerText;
+    return ['null', 'undefined', 'false', 'NaN', '[object Object]']
+      .filter((word) => new RegExp('(^|\\s)' + word + '(\\s|$)').test(text));
+  });
+  ok(`no stringified nothing on ${name}`, stray.length === 0, stray);
+}
+
 // The recovery link: a second device, with nothing in its storage, claiming the
 // room from the fragment alone.
 console.log('');
@@ -207,6 +270,9 @@ await fetch(`${BASE}/api/rooms/${room.code}/admin`, {
   body: JSON.stringify({ action: 'close' }),
 });
 
-console.log(out.join('\n'));
-console.log(errors.length === 0 ? '\nno page errors' : '\nPAGE ERRORS:\n' + [...new Set(errors)].join('\n'));
+// Checks are printed as they happen, so a run that hangs still shows how far it
+// reached. Only the tally is printed here.
+const failed = out.filter((line) => line.startsWith('FAIL'));
+console.log(`\n${out.length - failed.length} passed, ${failed.length} failed`);
+console.log(errors.length === 0 ? 'no page errors' : 'PAGE ERRORS:\n' + [...new Set(errors)].join('\n'));
 process.exit(out.some((l) => l.startsWith('FAIL')) || errors.length ? 1 : 0);

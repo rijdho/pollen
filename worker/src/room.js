@@ -7,7 +7,7 @@
 
 import { LIMITS } from '../../public/js/shared/limits.js?v=1';
 import { sanitiseText, wordCount } from '../../public/js/shared/sanitize.js?v=1';
-import { tallyChoice, tallyScale, tallyCloud } from '../../public/js/shared/aggregate.js?v=1';
+import { tallyChoice, tallyScale, tallyCloud, tallyRank } from '../../public/js/shared/aggregate.js?v=1';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS upvotes (
 );
 `;
 
-const QUESTION_TYPES = new Set(['choice', 'scale', 'cloud', 'qa']);
+const QUESTION_TYPES = new Set(['choice', 'scale', 'cloud', 'qa', 'rank']);
 
 export class Room {
   constructor(ctx, env) {
@@ -231,6 +231,11 @@ export class Room {
       return { type: 'scale', steps: q.spec.steps, labels: q.spec.labels, ...tallyScale([...byVoter.values()], q.spec.steps) };
     }
     if (q.type === 'qa') return { type: 'qa', items: this.qaItems(q.idx, '') };
+    if (q.type === 'rank') {
+      const byVoter = new Map();
+      for (const r of rows) byVoter.set(r.voter, JSON.parse(r.value));
+      return { type: 'rank', options: q.spec.options, ...tallyRank([...byVoter.values()], q.spec.options.length) };
+    }
     return { type: 'cloud', ...tallyCloud(rows.map((r) => JSON.parse(r.value))) };
   }
 
@@ -348,7 +353,16 @@ export class Room {
 
   writeSingle(q, voter, value, now) {
     let stored;
-    if (q.type === 'choice') {
+    if (q.type === 'rank') {
+      const order = Array.isArray(value) ? value : [];
+      const seen = new Set(order.filter((i) => Number.isInteger(i) && i >= 0 && i < q.spec.options.length));
+      // A partial ordering is refused rather than stored and discarded later:
+      // the person should be told, not quietly left out of the count.
+      if (order.length !== q.spec.options.length || seen.size !== q.spec.options.length) {
+        return { error: 'incomplete_order', status: 400 };
+      }
+      stored = order;
+    } else if (q.type === 'choice') {
       const picks = [...new Set((Array.isArray(value) ? value : [value])
         .filter((v) => Number.isInteger(v) && v >= 0 && v < q.spec.options.length))];
       if (picks.length === 0) return { error: 'empty', status: 400 };
@@ -632,6 +646,17 @@ export class Room {
       return json({ items: this.qaItems(idx, url.searchParams.get('voter') || '') });
     }
 
+    if (op === 'results') {
+      // Fetched by a phone, once, and only for a question whose author chose to
+      // share the tally. Still a fetch and not a push: one request per person
+      // per question is linear, streaming it would not be.
+      const idx = Number(url.searchParams.get('idx'));
+      const q = this.questions()[idx];
+      if (!q) return json({ error: 'no_question' }, 404);
+      if (!q.spec.showResults) return json({ error: 'forbidden' }, 403);
+      return json({ results: this.results(q) });
+    }
+
     if (op === 'upvote') {
       const body = await request.json();
       const r = this.upvote({
@@ -720,12 +745,21 @@ function prepareQuestion(q) {
     return {
       type: 'choice',
       prompt,
-      spec: { options, multiple: Boolean(q.multiple), correct, seconds },
+      spec: { options, multiple: Boolean(q.multiple), correct, seconds, showResults: q.showResults === true },
     };
   }
 
   if (q.type === 'qa') {
     return { type: 'qa', prompt, spec: { moderation: q.moderation !== false, seconds } };
+  }
+
+  if (q.type === 'rank') {
+    const options = (Array.isArray(q.options) ? q.options : [])
+      .map((o) => sanitiseText(String(o ?? ''), LIMITS.choice.maxOptionChars))
+      .filter((o) => o !== '')
+      .slice(0, LIMITS.choice.maxOptions);
+    if (options.length < 2) return null;
+    return { type: 'rank', prompt, spec: { options, seconds, showResults: q.showResults === true } };
   }
 
   if (q.type === 'scale') {
@@ -735,6 +769,7 @@ function prepareQuestion(q) {
       prompt,
       spec: {
         steps,
+        showResults: q.showResults === true,
         labels: {
           min: sanitiseText(String(q.labels?.min ?? ''), LIMITS.choice.maxOptionChars),
           max: sanitiseText(String(q.labels?.max ?? ''), LIMITS.choice.maxOptionChars),
@@ -743,14 +778,22 @@ function prepareQuestion(q) {
     };
   }
 
-  // Moderation defaults to on, and turning it off is a deliberate act by the
-  // person standing next to the screen.
+  // A word cloud publishes straight to the screen. The entries are one to three
+  // words, already stripped of anything that could reorder or overflow what is
+  // displayed, and holding each one for approval turned every cloud into a
+  // queue the presenter had to work through while the room waited. Approval is
+  // still available per question, off unless asked for.
+  //
+  // Audience questions are the other way round: whole sentences, and long
+  // enough to say something the presenter would not want on a wall, so those
+  // still default to waiting.
   return {
     type: 'cloud',
     prompt,
     spec: {
       entries: clamp(Number(q.entries) || 1, 1, LIMITS.cloud.maxEntriesPerVoter),
-      moderation: q.moderation !== false,
+      moderation: q.moderation === true,
+      showResults: q.showResults === true,
     },
   };
 }

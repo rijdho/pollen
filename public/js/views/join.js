@@ -3,6 +3,7 @@ import { t } from '../i18n.js?v=1';
 import { api, liveSocket, ApiError } from '../api.js?v=1';
 import { LIMITS } from '../shared/limits.js?v=1';
 import { wordCount } from '../shared/sanitize.js?v=1';
+import { percentages } from '../shared/aggregate.js?v=1';
 
 /**
  * The phone. It receives the current question over its socket, never the
@@ -116,11 +117,109 @@ export function renderJoin(root, { code }) {
       return;
     }
     const answered = (sent.get(view.current) || 0) > 0;
-    if (type !== 'cloud' && answered && editing !== view.current) {
+    if (!['cloud', 'qa'].includes(type) && answered && editing !== view.current) {
       stage.append(sentState());
       return;
     }
-    stage.append(type === 'choice' ? choiceForm() : type === 'scale' ? scaleForm() : cloudForm());
+    stage.append(
+      type === 'choice' ? choiceForm()
+        : type === 'scale' ? scaleForm()
+          : type === 'rank' ? rankForm()
+            : cloudForm(),
+    );
+  }
+
+  /**
+   * Ordering by buttons rather than by dragging. A drag on a phone competes
+   * with the page's own scrolling and fails silently when it loses; two
+   * buttons work with a thumb, with a keyboard and with a screen reader.
+   */
+  function rankForm() {
+    const spec = view.question.spec;
+    const order = spec.options.map((_, i) => i);
+    const list = el('ol', { class: 'rank-list' });
+
+    const redraw = () => {
+      clear(list);
+      order.forEach((option, position) => {
+        list.append(el('li', { class: 'rank-item' }, [
+          el('span', { class: 'rank-num', text: String(position + 1) }),
+          el('span', { class: 'rank-label', text: spec.options[option] }),
+          el('div', { class: 'rank-tools' }, [
+            el('button', {
+              class: 'btn btn-quiet', type: 'button', text: '↑',
+              'aria-label': t('join.rankUp') + ': ' + spec.options[option],
+              disabled: position === 0,
+              onClick: () => {
+                [order[position - 1], order[position]] = [order[position], order[position - 1]];
+                redraw();
+              },
+            }),
+            el('button', {
+              class: 'btn btn-quiet', type: 'button', text: '↓',
+              'aria-label': t('join.rankDown') + ': ' + spec.options[option],
+              disabled: position === order.length - 1,
+              onClick: () => {
+                [order[position + 1], order[position]] = [order[position], order[position + 1]];
+                redraw();
+              },
+            }),
+          ]),
+        ]));
+      });
+    };
+    redraw();
+
+    return el('div', {}, [
+      el('p', { class: 'hint', text: t('join.rankHint') }),
+      list,
+      el('button', {
+        class: 'btn btn-brand btn-lg btn-block', type: 'button', text: t('join.submit'),
+        onClick: () => send([...order]),
+      }),
+    ]);
+  }
+
+  /**
+   * The tally, on the phone, only where the presenter asked for it. Fetched
+   * once after answering rather than streamed: see qform.js for the arithmetic
+   * that makes the difference.
+   */
+  function resultsPanel() {
+    const box = el('div', { class: 'phone-results' }, [el('p', { class: 'hint', text: '…' })]);
+    api.results(code, view.current).then(({ results: data }) => {
+      clear(box);
+      box.append(el('p', { class: 'eyebrow', text: t('join.results') }));
+      if (data.type === 'choice') {
+        box.append(el('ul', { class: 'mini-bars' }, data.options.map((label, i) => el('li', {}, [
+          el('span', { class: 'mini-name', text: label }),
+          el('span', { class: 'mini-value', text: data.percentages[i] + '%' }),
+          el('span', { class: 'mini-track' }, [
+            el('span', { class: 'mini-fill', style: { width: data.percentages[i] + '%' } }),
+          ]),
+        ]))));
+      } else if (data.type === 'scale') {
+        const share = percentages(data.histogram);
+        box.append(el('ul', { class: 'mini-bars' }, data.histogram.map((n, i) => el('li', {}, [
+          el('span', { class: 'mini-name', text: String(i + 1) }),
+          el('span', { class: 'mini-value', text: String(n) }),
+          el('span', { class: 'mini-track' }, [
+            el('span', { class: 'mini-fill', style: { width: share[i] + '%' } }),
+          ]),
+        ]))));
+      } else if (data.type === 'rank') {
+        box.append(el('ol', { class: 'mini-rank' }, data.rows.map((row) => el('li', {
+          text: data.options[row.index] + (row.average === null ? '' : ` · ${row.average}`),
+        }))));
+      } else if (data.type === 'cloud') {
+        box.append(el('p', { class: 'hint', text: data.items.slice(0, 12).map((i) => `${i.label} (${i.count})`).join(' · ') }));
+      }
+    }).catch(() => {
+      // A tally the presenter did not share is not an error worth shouting
+      // about on a phone; the panel simply does not appear.
+      box.remove();
+    });
+    return box;
   }
 
   function sentState() {
@@ -139,6 +238,7 @@ export function renderJoin(root, { code }) {
         class: 'btn btn-quiet', type: 'button', text: t('join.change'),
         onClick: () => { editing = view.current; draw(); },
       }),
+      view.question.spec?.showResults ? resultsPanel() : null,
     ]);
   }
 

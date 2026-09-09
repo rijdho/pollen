@@ -337,11 +337,17 @@ a { color: var(--brand); }
   .scale-ends { grid-column: 1; }
 }
 
-/* Centred so it reads as a cloud rather than a list, and baseline-aligned so
-   words of very different sizes still sit on a line together. */
-.cloud { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .2rem 1.1rem; padding: .5rem 0; }
-.cloud-word { font-family: var(--disp); line-height: 1.05; color: var(--brand); letter-spacing: -0.02em; }
-.cloud-word-count { font-family: var(--mono); font-size: .55em; font-weight: 500; color: var(--ink-2); margin-left: .25em; vertical-align: super; }
+/* A real cloud: positions come from shared/cloudlayout.js, which packs words
+   on a spiral without ever letting two overlap. The SVG scales to its box, so
+   the same answers make the same cloud on a laptop and on a projector. */
+.cloud { color: var(--brand); }
+/* Capped, because the viewBox is cropped to the words and a tall cloud would
+   otherwise scale itself off the bottom of the screen. The SVG meets the box
+   and stays centred. */
+.cloud-svg {
+  width: 100%; height: auto; max-height: 52vh; display: block;
+  font-family: var(--disp);
+}
 
 /* The 3px left edge is a status marker and appears only while words are
    actually waiting. It is never brand violet: chrome does not carry meaning. */
@@ -463,3 +469,49 @@ a { color: var(--brand); }
 }
 .adder[open] summary, .recovery[open] summary { color: var(--ink); margin-bottom: .6rem; }
 .adder-body, .recovery-body { padding-top: .3rem; }
+
+/* --- ranking -------------------------------------------------------------- */
+
+.rank-num {
+  font-family: var(--mono); font-size: .8125rem; font-variant-numeric: tabular-nums;
+  color: var(--ink-2); width: 1.6em; text-align: right; flex: 0 0 auto;
+}
+.rank-list { list-style: none; margin: .75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.rank-item {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .7rem .8rem; border: 1px solid var(--hairline); border-radius: var(--r-sm);
+  background: var(--surface-2); min-height: 3rem;
+}
+.rank-label { flex: 1 1 auto; }
+.rank-tools { display: flex; gap: .25rem; flex: 0 0 auto; }
+
+.rank-board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .8rem; }
+.rank-board-item {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .4rem .9rem;
+  font-size: clamp(1rem, 1.8vw, 1.35rem);
+}
+.rank-board-pos {
+  font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--ink-2); width: 1.6em; text-align: right; grid-row: span 2;
+}
+.rank-board-label { font-weight: 500; }
+.rank-board-avg { font-family: var(--mono); font-size: .8125rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rank-board-track {
+  grid-column: 2 / -1; height: clamp(.4rem, 1vw, .7rem);
+  background: var(--track); border-radius: 999px; overflow: hidden;
+}
+.rank-board-fill { display: block; height: 100%; background: var(--brand); border-radius: 999px; opacity: .55; transition: width .4s ease; }
+.rank-board-item.leading .rank-board-fill { opacity: 1; }
+.rank-board-item.leading .rank-board-label,
+.rank-board-item.leading .rank-board-avg { color: var(--brand); font-weight: 600; }
+
+/* --- the tally on a phone, where the presenter asked for it ---------------- */
+
+.phone-results { margin-top: 1.25rem; }
+.mini-bars { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.mini-bars li { display: grid; grid-template-columns: 1fr auto; gap: .2rem .75rem; }
+.mini-name { font-size: .9375rem; }
+.mini-value { font-family: var(--mono); font-size: .8125rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.mini-track { grid-column: 1 / -1; height: .4rem; background: var(--track); border-radius: 999px; overflow: hidden; }
+.mini-fill { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+.mini-rank { margin: .5rem 0 0; padding-left: 1.2rem; font-size: .9375rem; }

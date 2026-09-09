@@ -24,6 +24,20 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The word cloud is a cloud.** Words are packed on a spiral in
+  `shared/cloudlayout.js`, never overlapping, sized and weighted by how often
+  they were said, some set vertically, and the drawing is cropped to what was
+  placed so it fills the screen. The layout is deterministic, which is the
+  property that matters: the screen redraws on every vote, and a cloud that
+  reshuffled each time would be unreadable however pretty each frame was.
+- **Ranking questions.** Two to eight things put in order, reordered on the
+  phone with buttons rather than by dragging, which competes with the page's own
+  scrolling and loses. The projector shows the average position each option was
+  put in.
+- **A per-question setting to show the tally on phones too.** Off by default and
+  labelled with what it costs: one extra request per person per question, which
+  is linear and affordable, where a live feed to every phone would not be.
+- **Results download as CSV** as well as JSON.
 - **Audience questions.** The room asks, the room supports each other's, and the
   presenter sees them ordered by support. Moderated by default like the word
   cloud. The list is the one thing a phone fetches rather than receives, so a
@@ -68,6 +82,15 @@ All notable changes to this project are documented here. The format follows
   a script can fill a room to its device ceiling and that no rate limit tight
   enough to stop it would leave a lecture hall able to join.
 
+### Changed
+
+- **Word cloud entries no longer wait for approval.** They are one to three
+  words, already stripped of anything that could reorder or overflow what is
+  displayed, and holding each one turned every cloud into a queue the presenter
+  worked through while the room waited. The setting is still there per question,
+  off unless asked for. Audience questions still wait by default: whole
+  sentences are a different risk.
+
 ### Fixed
 
 - The creation limit charged for attempts that never opened a room, so a run of
@@ -76,6 +99,13 @@ All notable changes to this project are documented here. The format follows
   the refusal says how many minutes the wait is.
 - The button that opens a room stayed live while the request was in flight, so a
   second click opened a second room.
+- The controls bar printed a literal `null` where the reveal button belongs on a
+  question with no right answer. DOM `append()` stringifies its arguments, and
+  this was the second time it reached a screen, so there is now an `appendAll()`
+  that filters and a browser check that fails on `null`, `undefined`, `false`,
+  `NaN` or `[object Object]` appearing as words on either page.
+- The approval queue appeared, saying "nothing waiting", under questions that
+  never wait for anything.
 - The buttons that add a question sat above the list, out of sight of anyone who
   had just finished typing one. They now sit below it, and each question card is
   numbered.
