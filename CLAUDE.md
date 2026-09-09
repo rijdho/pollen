@@ -94,9 +94,10 @@ room. `own` is computed per request, so each viewer learns only about their own 
 
 ## Tests
 
-Three suites, and they cover different things. `npm test` is unit only and needs no server. `npm run live` needs `npm run dev` in another
-terminal and drives the real runtime: storage, the key gate, both socket kinds, the rate
-limit and the creation throttle.
+Three suites, and they cover different things. `npm test` is unit only and needs no
+server. `npm run live` needs `npm run dev` in another terminal and drives the real
+runtime: storage, the key gate, both socket kinds, the server clock, the rate limits and
+the creation throttle.
 
 Each live run uses its own `cf-connecting-ip` from the documentation range, because the
 creation throttle is real storage with a one-hour window and a fixed address would make
@@ -106,30 +107,65 @@ The QR fixture in `tests/fixtures/` was verified once by decoding it with an ind
 implementation (`zxing-cpp`), which read back the exact URL. **Regenerating it without
 decoding the new matrix would make that test vacuous.**
 
-## Still to do before this goes public
+## Where this is, 2026-09-09
 
-Done already: deployed to `pollen.rijdho.org` and verified in a browser (headings at 800,
-tabular figures, the policy breached on purpose, and no request to any other origin); the
-GitHub About block is set with description, homepage and six topics; and the leak sweep has
-been run over the working tree **and the full object history**, every hit read rather than
-skimmed. All six were benign: the AGPL's own wording about passwords, a README sentence
-saying the room code is not a secret, and the `wrangler.toml` comment stating that this
-Worker is never on the workers.dev namespace.
+Working, deployed and private. Eight commits on `main`, all pushed. The deployed files are
+byte-identical to the working tree (compared by hash, not by trusting the deploy log).
 
-Run the history sweep again before flipping visibility, since commits will have been added.
-Run it in `bash`: in `zsh` the `while read` loop yields nothing, which reads exactly like a
-clean repo. And do not name the loop variable `path` in `zsh`, which is bound to `PATH` and
-empties it mid-loop.
+    npm test        59 unit tests, no server needed
+    npm run dev     wrangler on http://127.0.0.1:8788
+    npm run live    101 checks against the running Worker   (needs dev)
+    npm run ui      23 checks driving the pages in a browser (needs dev + Chrome)
 
-1. Regenerate the screenshots against the deployed URL, so they stop showing
-   `127.0.0.1:8788`: `POLLEN_BASE=https://pollen.rijdho.org npm run screenshots`, which
-   opens and then deletes one real room.
-2. Connect Zenodo (press **Sync now**, the list is cached), cut v1.0.0, then add the DOI
-   badge, `CITATION.cff` and the README `## Citation` section as the closing section.
+`npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
+`npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first
+but not the other two; run all three before a release.
 
-`npm run ui` needs a Chrome as well: `npm i puppeteer --no-save`, or point `CHROME_PATH` at
-one. It is the only thing that checks the pages are wired to the contract the other two
-prove.
+What exists: multiple choice (optionally with a right answer, which turns it into a quiz
+with a scoreboard), rating scales, ranking, word clouds and audience questions with support
+votes. Countdowns timed by the server. Questions can be added to a live room. Saved question
+sets on the device, exportable as a file. Recovery links. Results as JSON or CSV. English,
+German and Spanish. Light and dark.
+
+### Pick up here
+
+1. **Decide whether audience questions should also skip approval.** Word clouds no longer
+   wait; audience questions still do, because they are whole sentences rather than one to
+   three words. That asymmetry was a judgement call, not an instruction, and it is one line
+   in `prepareQuestion` plus the default in `qform.js` if it should go.
+2. **A full cloud drops its least common words.** They are in the download and the screen
+   says how many were left out, but the presenter cannot see them at all. A list behind a
+   disclosure, or a smaller minimum size before dropping, would both work.
+3. **The scoreboard has no speed bonus.** Doing it honestly means timing arrival at the
+   Durable Object, never trusting a time the phone reports.
+
+### Before it goes public
+
+1. Re-run the leak sweep over the working tree **and the full object history**; commits have
+   been added since the last one. Run it in `bash` (in `zsh` the `while read` loop yields
+   nothing, which reads exactly like a clean repo) and do not call the loop variable `path`,
+   which `zsh` binds to `PATH` and empties mid-loop.
+2. Regenerate the screenshots against the deployed URL so they stop showing
+   `127.0.0.1:8788`: `POLLEN_BASE=https://pollen.rijdho.org npm run screenshots`. It opens
+   and then deletes one real room.
+3. Connect Zenodo (press **Sync now**; the list is cached), cut v1.0.0, then add the DOI
+   badge under the H1, `CITATION.cff`, and the README `## Citation` section last.
+4. Add it to `rijdho.github.io/data/cv.json` under `experiments`, where BiblioHelp lives.
+   Doing that earlier would publish its existence before the repo is public.
+
+Already done and not worth redoing: deployed and verified in a browser against the live URL
+(computed styles, the policy breached on purpose, no request to any other origin); the
+GitHub About block set with description, homepage and six topics; and one full-history leak
+sweep whose six hits were all read and all benign (the AGPL's own wording about passwords, a
+README sentence saying the room code is not a secret, and the `wrangler.toml` comment
+stating this Worker is never on the workers.dev namespace).
+
+### One thing that is not this repo's to fix
+
+`life.rijdho.io` has no DNS record, and neither does `rijdho.io`. Every sibling tool links
+to `https://rijdho.github.io`, which is what this one now does too. If the personal site is
+meant to move, that is a separate job: point the domain, then migrate the footer link in all
+six repos at once rather than in this one alone.
 
 ## The cloud layout
 
@@ -145,11 +181,3 @@ properties are load-bearing and both are pinned by tests:
 
 Measurement is injected, so the module has no DOM and the tests use a predictable ruler
 instead of depending on how one font happens to render.
-
-## Worth doing, not yet done
-
-- Nothing from the earlier list: ranking, the show-results toggle and CSV are all in.
-- A cloud that is full drops its least common words. They are in the download, and the
-  screen says how many were left out, but a presenter cannot currently see them at all.
-- The scoreboard has no speed bonus. Adding one means trusting a client-reported time or
-  measuring arrival at the object, and the second is the only honest option.
