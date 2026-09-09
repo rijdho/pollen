@@ -53,6 +53,9 @@ export const api = {
   state: (code, key) => call(`/api/rooms/${code}/state`, { key }),
   admin: (code, key, action, payload) => call(`/api/rooms/${code}/admin`, { method: 'POST', body: { action, payload }, key }),
   exportResults: (code, key) => call(`/api/rooms/${code}/export`, { key }),
+  qaList: (code, idx) => call(`/api/rooms/${code}/qa?idx=${idx}`),
+  upvote: (code, idx, id) => call(`/api/rooms/${code}/upvote`, { method: 'POST', body: { idx, id } }),
+  setNick: (code, nick) => call(`/api/rooms/${code}/nick`, { method: 'POST', body: { nick } }),
 };
 
 /**

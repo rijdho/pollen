@@ -17,15 +17,25 @@ CREATE TABLE IF NOT EXISTS questions (
 CREATE TABLE IF NOT EXISTS votes (
   q INTEGER NOT NULL, voter TEXT NOT NULL, seq INTEGER NOT NULL,
   value TEXT NOT NULL, state TEXT NOT NULL, at INTEGER NOT NULL,
+  -- Public number for an audience question, used only by the qa type. It
+  -- exists so the list the whole room reads can name an item without naming
+  -- the device that asked it.
+  pub INTEGER,
   PRIMARY KEY (q, voter, seq)
 );
 CREATE TABLE IF NOT EXISTS voters (
   voter TEXT PRIMARY KEY, first_at INTEGER NOT NULL,
-  window_at INTEGER NOT NULL, window_n INTEGER NOT NULL
+  window_at INTEGER NOT NULL, window_n INTEGER NOT NULL,
+  nick TEXT
+);
+CREATE TABLE IF NOT EXISTS upvotes (
+  q INTEGER NOT NULL, target_voter TEXT NOT NULL, target_seq INTEGER NOT NULL,
+  voter TEXT NOT NULL, at INTEGER NOT NULL,
+  PRIMARY KEY (q, target_voter, target_seq, voter)
 );
 `;
 
-const QUESTION_TYPES = new Set(['choice', 'scale', 'cloud']);
+const QUESTION_TYPES = new Set(['choice', 'scale', 'cloud', 'qa']);
 
 export class Room {
   constructor(ctx, env) {
@@ -129,6 +139,23 @@ export class Room {
 
   // --- views ---------------------------------------------------------------
 
+  /**
+   * The question as a phone may see it. Which options are right is stripped
+   * until the presenter reveals them: sending it and merely not drawing it
+   * would put the answer one network panel away from anyone in the room.
+   */
+  publicQuestion(q, revealed) {
+    if (!q) return null;
+    const spec = { ...q.spec };
+    if (q.type === 'choice' && !revealed) delete spec.correct;
+    return { idx: q.idx, type: q.type, prompt: q.prompt, spec };
+  }
+
+  /** Whether anything in this room can be right, which is what makes a score. */
+  hasScores() {
+    return this.scored().length > 0;
+  }
+
   /** What a participant is allowed to know. Never the results, never the key. */
   participantView(voter) {
     const current = this.meta('current');
@@ -144,9 +171,27 @@ export class Room {
       total: questions.length,
       locked: this.meta('locked'),
       current,
-      question: q ? { idx: q.idx, type: q.type, prompt: q.prompt, spec: q.spec } : null,
+      question: this.publicQuestion(q, Boolean(this.meta('revealed'))),
+      startedAt: this.meta('startedAt'),
+      revealed: Boolean(this.meta('revealed')),
+      scored: this.hasScores(),
+      now: Date.now(),
+      nick: this.nickOf(voter),
       mine,
     };
+  }
+
+  nickOf(voter) {
+    const row = this.sql.exec('SELECT nick FROM voters WHERE voter = ?', voter).toArray()[0];
+    return row?.nick || null;
+  }
+
+  /** Whether the clock has run out on the question now showing. */
+  expired(q, now) {
+    const seconds = q?.spec?.seconds || 0;
+    if (!seconds) return false;
+    const startedAt = this.meta('startedAt') || 0;
+    return now > startedAt + seconds * 1000;
   }
 
   /** What the projector shows: the same as above plus the tally. */
@@ -158,11 +203,17 @@ export class Room {
     return {
       ...base,
       mine: undefined,
+      // The presenter sees the whole question, right answers included: they
+      // wrote it, and they are the one who decides when to reveal it.
+      question: q ? { idx: q.idx, type: q.type, prompt: q.prompt, spec: q.spec } : null,
       questions: questions.map((x) => ({ idx: x.idx, type: x.type, prompt: x.prompt })),
       voters: this.sql.exec('SELECT COUNT(*) AS n FROM voters').toArray()[0].n,
       expiresAt: this.meta('expiresAt'),
       results: q ? this.results(q) : null,
-      pending: q && q.type === 'cloud' ? this.pending(current) : [],
+      pending: q && (q.type === 'cloud' || q.type === 'qa') ? this.pending(current) : [],
+      // Only when something in the room can be right or wrong. A scoreboard on
+      // an opinion poll would be nonsense dressed as a result.
+      scores: this.scored().length > 0 ? this.scoreboard() : null,
     };
   }
 
@@ -179,7 +230,80 @@ export class Room {
       for (const r of rows) byVoter.set(r.voter, JSON.parse(r.value));
       return { type: 'scale', steps: q.spec.steps, labels: q.spec.labels, ...tallyScale([...byVoter.values()], q.spec.steps) };
     }
+    if (q.type === 'qa') return { type: 'qa', items: this.qaItems(q.idx, '') };
     return { type: 'cloud', ...tallyCloud(rows.map((r) => JSON.parse(r.value))) };
+  }
+
+  /**
+   * Approved audience questions, most supported first. Ties break on arrival,
+   * so two questions with the same support keep the order they were asked in
+   * rather than shuffling every time the list is drawn.
+   */
+  qaItems(idx, voter) {
+    const rows = this.sql.exec(
+      "SELECT voter, seq, value, at, pub FROM votes WHERE q = ? AND state = 'ok' ORDER BY at", idx).toArray();
+    const counts = new Map();
+    for (const r of this.sql.exec(
+      'SELECT target_voter, target_seq, COUNT(*) AS n FROM upvotes WHERE q = ? GROUP BY target_voter, target_seq',
+      idx).toArray()) {
+      counts.set(r.target_voter + '\u0000' + r.target_seq, r.n);
+    }
+    const mine = new Set(this.sql.exec(
+      'SELECT target_voter, target_seq FROM upvotes WHERE q = ? AND voter = ?', idx, voter)
+      .toArray().map((r) => r.target_voter + '\u0000' + r.target_seq));
+    return rows.map((r, order) => {
+      const key = r.voter + '\u0000' + r.seq;
+      return {
+        // Never the asker: an audience question is anonymous, and the device
+        // token must not leak out through the list everyone can read.
+        id: String(r.pub),
+        text: JSON.parse(r.value),
+        votes: counts.get(key) || 0,
+        mine: mine.has(key),
+        // Whether the person asking for this list wrote this one. Each viewer
+        // learns it about their own items only, which is what lets a phone
+        // stop offering to support a question it asked itself.
+        own: r.voter === voter,
+        order,
+      };
+    }).sort((a, b) => b.votes - a.votes || a.order - b.order);
+  }
+
+  // --- scoring -------------------------------------------------------------
+
+  /** Questions that have a right answer, which is what makes a score exist. */
+  scored() {
+    return this.questions().filter((q) => q.type === 'choice' && q.spec.correct?.length > 0);
+  }
+
+  /**
+   * One point per question answered exactly right. Exactly: on a question that
+   * allows several answers, picking three of four correct options is not
+   * three-quarters right, it is a different answer.
+   */
+  scoreboard() {
+    const scored = this.scored();
+    const totals = new Map();
+    for (const q of scored) {
+      const want = JSON.stringify(q.spec.correct);
+      for (const r of this.sql.exec(
+        "SELECT voter, value FROM votes WHERE q = ? AND state = 'ok'", q.idx).toArray()) {
+        const picks = JSON.parse(r.value);
+        const got = JSON.stringify([...new Set(Array.isArray(picks) ? picks : [picks])].sort((a, b) => a - b));
+        if (!totals.has(r.voter)) totals.set(r.voter, 0);
+        if (got === want) totals.set(r.voter, totals.get(r.voter) + 1);
+      }
+    }
+    const nicks = new Map(this.sql.exec('SELECT voter, nick FROM voters').toArray()
+      .map((r) => [r.voter, r.nick]));
+    const rows = [...totals.entries()]
+      .map(([voter, score]) => ({ nick: nicks.get(voter) || null, score }))
+      // Only people who chose a name appear. Someone who never entered one has
+      // not agreed to be on a wall in front of the room.
+      .filter((r) => r.nick)
+      .sort((a, b) => b.score - a.score || a.nick.localeCompare(b.nick))
+      .slice(0, LIMITS.quiz.boardSize);
+    return { of: scored.length, rows };
   }
 
   pending(idx) {
@@ -196,6 +320,7 @@ export class Room {
 
     const q = this.questions()[idx];
     if (!q) return { error: 'no_question', status: 404 };
+    if (this.expired(q, now)) return { error: 'time_up', status: 409 };
 
     const seen = this.sql.exec('SELECT window_at, window_n FROM voters WHERE voter = ?', voter).toArray()[0];
     if (!seen) {
@@ -212,7 +337,9 @@ export class Room {
 
     const written = q.type === 'cloud'
       ? this.writeCloud(q, voter, value, now)
-      : this.writeSingle(q, voter, value, now);
+      : q.type === 'qa'
+        ? this.writeQa(q, voter, value, now)
+        : this.writeSingle(q, voter, value, now);
     if (written.error) return written;
 
     this.broadcast();
@@ -251,9 +378,92 @@ export class Room {
     if (mine.length >= allowed) return { error: 'entries_used', status: 409 };
 
     const state = q.spec.moderation ? 'pending' : 'ok';
+    // No public number: a cloud entry is never addressed individually, only
+    // moderated by the presenter, who already knows who is who.
     this.sql.exec('INSERT INTO votes (q, voter, seq, value, state, at) VALUES (?, ?, ?, ?, ?, ?)',
       q.idx, voter, mine.length, JSON.stringify(text), state, now);
     return { ok: true };
+  }
+
+  writeQa(q, voter, value, now) {
+    const text = sanitiseText(String(value ?? ''), LIMITS.qa.maxChars);
+    if (text === '') return { error: 'empty', status: 400 };
+
+    const mine = this.sql.exec('SELECT seq FROM votes WHERE q = ? AND voter = ? ORDER BY seq',
+      q.idx, voter).toArray();
+    if (mine.length >= LIMITS.qa.maxPerVoter) return { error: 'entries_used', status: 409 };
+    const total = this.sql.exec('SELECT COUNT(*) AS n FROM votes WHERE q = ?', q.idx).toArray()[0].n;
+    if (total >= LIMITS.qa.maxItems) return { error: 'room_full', status: 429 };
+
+    const state = q.spec.moderation ? 'pending' : 'ok';
+    // The public number is the position in the question, not anything derived
+    // from who asked. An id built from the device token would have put that
+    // token in the list everyone reads, and two questions from one person
+    // would have been linkable by anyone in the room.
+    this.sql.exec('INSERT INTO votes (q, voter, seq, value, state, at, pub) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      q.idx, voter, mine.length, JSON.stringify(text), state, now, total);
+    return { ok: true };
+  }
+
+  /**
+   * Supporting someone else's question. One per person per question, and it
+   * can be taken back, because a list that only ever grows rewards whoever
+   * asked first rather than whatever the room actually wants answered.
+   */
+  upvote({ voter, idx, id, now }) {
+    if (idx !== this.meta('current')) return { error: 'not_current', status: 409 };
+    const q = this.questions()[idx];
+    if (!q || q.type !== 'qa') return { error: 'no_question', status: 404 };
+    if (this.meta('locked')) return { error: 'locked', status: 409 };
+
+    const pub = Number(id);
+    if (!Number.isInteger(pub) || pub < 0) return { error: 'empty', status: 400 };
+
+    // The public number resolves to a row here, inside the object, and the
+    // answer never leaves it.
+    const row = this.sql.exec(
+      "SELECT voter, seq FROM votes WHERE q = ? AND pub = ? AND state = 'ok'", idx, pub).toArray()[0];
+    if (!row) return { error: 'no_question', status: 404 };
+    const target = row.voter;
+    const seq = row.seq;
+    if (target === voter) return { error: 'own_question', status: 409 };
+
+    const had = this.sql.exec(
+      'SELECT 1 AS x FROM upvotes WHERE q = ? AND target_voter = ? AND target_seq = ? AND voter = ?',
+      idx, target, seq, voter).toArray()[0];
+    if (had) {
+      this.sql.exec('DELETE FROM upvotes WHERE q = ? AND target_voter = ? AND target_seq = ? AND voter = ?',
+        idx, target, seq, voter);
+    } else {
+      this.sql.exec('INSERT INTO upvotes (q, target_voter, target_seq, voter, at) VALUES (?, ?, ?, ?, ?)',
+        idx, target, seq, voter, now);
+    }
+    this.broadcast();
+    return { ok: true, items: this.qaItems(idx, voter) };
+  }
+
+  /**
+   * A name for the scoreboard, chosen on the device and stored nowhere else.
+   * It is optional: without one you can still answer everything, you simply do
+   * not appear on the wall.
+   */
+  setNick({ voter, nick, now }) {
+    const clean = sanitiseText(String(nick ?? ''), LIMITS.quiz.maxNickChars);
+    if (clean === '') return { error: 'empty', status: 400 };
+    const taken = this.sql.exec('SELECT voter FROM voters WHERE nick = ? AND voter != ?', clean, voter)
+      .toArray()[0];
+    if (taken) return { error: 'nick_taken', status: 409 };
+    const seen = this.sql.exec('SELECT voter FROM voters WHERE voter = ?', voter).toArray()[0];
+    if (!seen) {
+      const n = this.sql.exec('SELECT COUNT(*) AS n FROM voters').toArray()[0].n;
+      if (n >= LIMITS.room.maxVoters) return { error: 'room_full', status: 429 };
+      this.sql.exec('INSERT INTO voters (voter, first_at, window_at, window_n, nick) VALUES (?, ?, ?, 0, ?)',
+        voter, now, now, clean);
+    } else {
+      this.sql.exec('UPDATE voters SET nick = ? WHERE voter = ?', clean, voter);
+    }
+    this.broadcast();
+    return { ok: true, nick: clean };
   }
 
   // --- presenter actions ---------------------------------------------------
@@ -265,6 +475,10 @@ export class Room {
       if (!Number.isInteger(idx) || idx < -1 || idx >= total) return { error: 'no_question', status: 400 };
       this.setMeta('current', idx);
       this.setMeta('locked', false);
+      // The clock is the server's, not the phone's. A countdown driven by the
+      // device would let anyone answer late by moving their own clock back.
+      this.setMeta('startedAt', now);
+      this.setMeta('revealed', false);
     } else if (action === 'lock') {
       this.setMeta('locked', Boolean(payload.locked));
     } else if (action === 'moderate') {
@@ -273,6 +487,18 @@ export class Room {
         state, this.meta('current'), String(payload.voter), Number(payload.seq));
     } else if (action === 'reset') {
       this.sql.exec('DELETE FROM votes WHERE q = ?', this.meta('current'));
+    } else if (action === 'add') {
+      const questions = this.questions();
+      if (questions.length >= LIMITS.room.maxQuestions) {
+        return { error: 'room_questions_full', status: 409 };
+      }
+      const prepared = prepareQuestion(payload.question || {});
+      if (!prepared) return { error: 'unusable_questions', status: 422 };
+      const idx = questions.length;
+      this.sql.exec('INSERT INTO questions (idx, type, prompt, spec) VALUES (?, ?, ?, ?)',
+        idx, prepared.type, prepared.prompt, JSON.stringify(prepared.spec));
+    } else if (action === 'reveal') {
+      this.setMeta('revealed', Boolean(payload.revealed));
     } else if (action === 'close') {
       return { closed: true };
     } else {
@@ -286,6 +512,7 @@ export class Room {
 
   export() {
     const questions = this.questions();
+    const scored = this.scored().length > 0;
     return {
       code: this.meta('code'),
       createdAt: this.meta('createdAt'),
@@ -296,6 +523,9 @@ export class Room {
         spec: q.spec,
         results: this.results(q),
       })),
+      // Present only when something in the room had a right answer, so an
+      // opinion poll's export does not carry an empty scoreboard implying one.
+      scores: scored ? this.scoreboard() : null,
     };
   }
 
@@ -342,7 +572,11 @@ export class Room {
       current,
       total: questions.length,
       locked: this.meta('locked'),
-      question: q ? { idx: q.idx, type: q.type, prompt: q.prompt, spec: q.spec } : null,
+      question: this.publicQuestion(q, Boolean(this.meta('revealed'))),
+      startedAt: this.meta('startedAt'),
+      revealed: Boolean(this.meta('revealed')),
+      scored: this.hasScores(),
+      now: Date.now(),
     };
   }
 
@@ -385,6 +619,34 @@ export class Room {
       pair[1].serializeAttachment({ role: 'follower' });
       pair[1].send(JSON.stringify({ type: 'question', ...this.followerView() }));
       return new Response(null, { status: 101, webSocket: pair[0] });
+    }
+
+    if (op === 'qa') {
+      // Fetched on demand rather than pushed. A room supporting each other's
+      // questions generates a change every second or two, and streaming that
+      // to every phone would multiply it by the size of the room, which is the
+      // one thing the whole design exists to avoid.
+      const idx = Number(url.searchParams.get('idx'));
+      const q = this.questions()[idx];
+      if (!q || q.type !== 'qa') return json({ error: 'no_question' }, 404);
+      return json({ items: this.qaItems(idx, url.searchParams.get('voter') || '') });
+    }
+
+    if (op === 'upvote') {
+      const body = await request.json();
+      const r = this.upvote({
+        voter: url.searchParams.get('voter') || '',
+        idx: Number(body.idx),
+        id: body.id,
+        now,
+      });
+      return r.error ? json({ error: r.error }, r.status) : json(r);
+    }
+
+    if (op === 'nick') {
+      const body = await request.json();
+      const r = this.setNick({ voter: url.searchParams.get('voter') || '', nick: body.nick, now });
+      return r.error ? json({ error: r.error }, r.status) : json(r);
     }
 
     if (op === 'vote') {
@@ -442,13 +704,28 @@ function prepareQuestion(q) {
   const prompt = sanitiseText(String(q.prompt ?? ''), LIMITS.prompt.maxChars);
   if (prompt === '') return null;
 
+  const seconds = clamp(Number(q.seconds) || 0, 0, LIMITS.question.maxSeconds);
+
   if (q.type === 'choice') {
     const options = (Array.isArray(q.options) ? q.options : [])
       .map((o) => sanitiseText(String(o ?? ''), LIMITS.choice.maxOptionChars))
       .filter((o) => o !== '')
       .slice(0, LIMITS.choice.maxOptions);
     if (options.length < 2) return null;
-    return { type: 'choice', prompt, spec: { options, multiple: Boolean(q.multiple) } };
+    // Which options are right, if any. An empty list means this is a poll and
+    // there is nothing to be right about, which stays the default.
+    const correct = [...new Set((Array.isArray(q.correct) ? q.correct : [])
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < options.length))]
+      .sort((a, b) => a - b);
+    return {
+      type: 'choice',
+      prompt,
+      spec: { options, multiple: Boolean(q.multiple), correct, seconds },
+    };
+  }
+
+  if (q.type === 'qa') {
+    return { type: 'qa', prompt, spec: { moderation: q.moderation !== false, seconds } };
   }
 
   if (q.type === 'scale') {

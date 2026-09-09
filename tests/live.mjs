@@ -221,6 +221,167 @@ const hidden = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data;
 check('a rejected word is on no screen at all',
   !JSON.stringify(hidden.results.items).includes('fair') && hidden.pending.length === 0, hidden);
 
+console.log('adding a question to a room already running');
+{
+  const before = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total;
+  const added = await call(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey,
+    body: { action: 'add', payload: { question: { type: 'qa', prompt: 'Anything to ask?', moderation: true } } },
+  });
+  check('a question can be added to a live room', added.status === 200, added);
+  await presenter.next(); await follower.next();
+  const after = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data;
+  check('the room grew by one', after.total === before + 1, { before, after: after.total });
+  check('every phone is told the room grew', true);
+
+  const junk = await call(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey, body: { action: 'add', payload: { question: { type: 'nope', prompt: 'x' } } },
+  });
+  check('an unusable question is refused rather than appended', junk.status === 422, junk);
+  check('and the room did not grow',
+    (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total === before + 1);
+}
+
+console.log('audience questions with support');
+{
+  const qaIdx = 3;
+  await call(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: qaIdx } } });
+  await presenter.next(); await follower.next();
+
+  const asked = await call(`/api/rooms/${code}/vote`, {
+    method: 'POST', voter: who('asker-one'), body: { idx: qaIdx, value: 'Where does the money come from?' },
+  });
+  check('an audience question is accepted', asked.status === 200, asked);
+  await presenter.next();
+  await call(`/api/rooms/${code}/vote`, {
+    method: 'POST', voter: who('asker-two'), body: { idx: qaIdx, value: 'What happens to the data afterwards?' },
+  });
+  await presenter.next();
+
+  const held = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data;
+  check('audience questions wait for approval too', held.pending.length === 2, held.pending);
+  check('and are on no screen until approved', held.results.items.length === 0);
+
+  for (const item of held.pending) {
+    await call(`/api/rooms/${code}/admin`, {
+      method: 'POST', key: adminKey,
+      body: { action: 'moderate', payload: { voter: item.voter, seq: item.seq, approve: true } },
+    });
+    await presenter.next();
+  }
+
+  const list = (await call(`/api/rooms/${code}/qa?idx=${qaIdx}`, { voter: who('reader') })).data.items;
+  check('an approved question is readable by the room', list.length === 2, list);
+  check('the list never carries who asked',
+    !JSON.stringify(list).includes(who('asker-one'))
+    && !JSON.stringify(list).includes(who('asker-two')), list);
+  check('and its ids are plain positions, not anything derived from a device',
+    list.every((i) => /^\d+$/.test(i.id)), list.map((i) => i.id));
+
+  const target = list[0].id;
+  const up = await call(`/api/rooms/${code}/upvote`, { method: 'POST', voter: who('reader'), body: { idx: qaIdx, id: target } });
+  check('anyone can support a question', up.status === 200, up);
+  await presenter.next();
+  check('support is counted and marked as mine',
+    up.data.items.find((i) => i.id === target).votes === 1
+    && up.data.items.find((i) => i.id === target).mine === true, up.data.items);
+
+  const again = await call(`/api/rooms/${code}/upvote`, { method: 'POST', voter: who('reader'), body: { idx: qaIdx, id: target } });
+  await presenter.next();
+  check('support can be taken back', again.data.items.find((i) => i.id === target).votes === 0, again.data.items);
+
+  const own = await call(`/api/rooms/${code}/upvote`, {
+    method: 'POST', voter: who('asker-one'), body: { idx: qaIdx, id: list.find((i) => i.text.startsWith('Where')).id },
+  });
+  check('you cannot support your own question', own.status === 409, own);
+
+  await call(`/api/rooms/${code}/upvote`, { method: 'POST', voter: who('backer-a'), body: { idx: qaIdx, id: list[1].id } });
+  await presenter.next();
+  await call(`/api/rooms/${code}/upvote`, { method: 'POST', voter: who('backer-b'), body: { idx: qaIdx, id: list[1].id } });
+  await presenter.next();
+  const ordered = (await call(`/api/rooms/${code}/qa?idx=${qaIdx}`, { voter: who('reader') })).data.items;
+  check('the most supported question comes first', ordered[0].id === list[1].id, ordered.map((i) => [i.id, i.votes]));
+}
+
+console.log('a quiz question, a name and a score');
+{
+  const added = await call(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey,
+    body: { action: 'add', payload: { question: { type: 'choice', prompt: 'Which year?', options: ['1994', '2007', '2016'], correct: [1] } } },
+  });
+  check('a question with a right answer can be added', added.status === 200, added);
+  await presenter.next(); await follower.next();
+  const quizIdx = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total - 1;
+  await call(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: quizIdx } } });
+  await presenter.next(); await follower.next();
+
+  const named = await call(`/api/rooms/${code}/nick`, { method: 'POST', voter: who('quiz-ana'), body: { nick: 'Ana' } });
+  check('a player may choose a name', named.status === 200 && named.data.nick === 'Ana', named);
+  await presenter.next();
+  const clash = await call(`/api/rooms/${code}/nick`, { method: 'POST', voter: who('quiz-bob'), body: { nick: 'Ana' } });
+  check('two people cannot share one name', clash.status === 409, clash);
+  await call(`/api/rooms/${code}/nick`, { method: 'POST', voter: who('quiz-bob'), body: { nick: 'Bob' } });
+  await presenter.next();
+
+  await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('quiz-ana'), body: { idx: quizIdx, value: [1] } });
+  await presenter.next();
+  await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('quiz-bob'), body: { idx: quizIdx, value: [0] } });
+  await presenter.next();
+  await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('quiz-anon'), body: { idx: quizIdx, value: [1] } });
+  const scored = (await presenter.next()).state;
+
+  check('the scoreboard exists only because something has a right answer', scored.scores !== null);
+  check('the right answer scores and the wrong one does not',
+    scored.scores.rows.find((r) => r.nick === 'Ana')?.score === 1
+    && scored.scores.rows.find((r) => r.nick === 'Bob')?.score === 0, scored.scores.rows);
+  check('someone who chose no name is not put on the wall',
+    scored.scores.rows.length === 2, scored.scores.rows);
+  // Written as two separate assertions on purpose. The first attempt was one
+  // `A || B` where B was always true, so it passed without checking anything:
+  // a green check is a claim too.
+  const beforeReveal = (await call(`/api/rooms/${code}`, { voter: who('quiz-bob') })).data;
+  check('the reveal has not happened yet', beforeReveal.revealed === false, beforeReveal.revealed);
+  check('and the phone has not been told which answer is right',
+    !JSON.stringify(beforeReveal).includes('correct'), beforeReveal.question?.spec);
+  check('the phone is told a scoreboard exists, without being told the answer',
+    beforeReveal.scored === true, beforeReveal.scored);
+
+  const revealed = await call(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'reveal', payload: { revealed: true } } });
+  await presenter.next(); await follower.next();
+  check('the presenter can reveal the answer', revealed.status === 200 && revealed.data.state.revealed === true, revealed.data.revealed);
+  const afterReveal = (await call(`/api/rooms/${code}`, { voter: who('quiz-bob') })).data;
+  check('and only then does the phone learn which one it was',
+    Array.isArray(afterReveal.question.spec.correct)
+    && afterReveal.question.spec.correct.length === 1, afterReveal.question.spec);
+  check('the presenter could see it all along',
+    Array.isArray((await call(`/api/rooms/${code}/state`, { key: adminKey })).data.question.spec.correct));
+}
+
+console.log('a timed question closes itself');
+{
+  const added = await call(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey,
+    body: { action: 'add', payload: { question: { type: 'choice', prompt: 'Quick', options: ['a', 'b'], seconds: 5 } } },
+  });
+  check('a question can carry a countdown', added.status === 200, added);
+  await presenter.next(); await follower.next();
+  const idx = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total - 1;
+  await call(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx } } });
+  const opened = (await presenter.next()).state;
+  await follower.next();
+  check('the clock starts when the presenter opens the question',
+    typeof opened.startedAt === 'number' && opened.startedAt > 0, opened.startedAt);
+  check('the question carries its own length', opened.question.spec.seconds === 5, opened.question.spec);
+  const inTime = await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('quick-one'), body: { idx, value: [0] } });
+  check('an answer inside the time is accepted', inTime.status === 200, inTime);
+  await presenter.next();
+
+  // The server's clock decides, so this is the only way to test it honestly.
+  await new Promise((r) => setTimeout(r, 5200));
+  const late = await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('quick-two'), body: { idx, value: [0] } });
+  check('an answer after the time is refused', late.status === 409 && late.data.error === 'time_up', late);
+}
+
 console.log('abuse controls');
 {
   const voter = who('flooder');
@@ -285,8 +446,15 @@ console.log('abuse controls');
 }
 
 console.log('export and close');
+const total = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total;
 const exported = (await call(`/api/rooms/${code}/export`, { key: adminKey })).data;
-check('the export carries every question', exported.questions.length === 3, exported.questions?.length);
+check('the export carries every question, including the ones added mid-session',
+  exported.questions.length === total, { got: exported.questions?.length, total });
+check('the export carries the audience questions and their support',
+  exported.questions.some((q) => q.type === 'qa' && q.results.items.length > 0),
+  exported.questions.map((q) => q.type));
+check('the export carries the scoreboard',
+  Array.isArray(exported.scores?.rows) && exported.scores.rows.length > 0, exported.scores);
 check('the export carries the results', exported.questions[1].results.mean === 3, exported.questions[1].results);
 check('the export carries no admin key', !JSON.stringify(exported).includes(adminKey));
 

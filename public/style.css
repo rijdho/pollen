@@ -375,3 +375,91 @@ a { color: var(--brand); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* --- countdown ------------------------------------------------------------ */
+
+.clock {
+  font-family: var(--mono); font-size: .875rem; font-variant-numeric: tabular-nums;
+  color: var(--ink-2); margin: 0;
+}
+.clock[data-out="true"] { color: var(--pending); font-weight: 600; }
+
+/* --- saved question sets -------------------------------------------------- */
+
+.deck-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.deck-item {
+  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+  padding: .6rem .75rem; border: 1px solid var(--hairline); border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.deck-name { font-weight: 600; flex: 1 1 8rem; }
+.deck-count { font-family: var(--mono); font-size: .75rem; color: var(--ink-2); }
+.deck-tools { display: flex; gap: .35rem; flex-wrap: wrap; }
+/* The file input is the label; the control itself is never drawn, because no
+   browser lets it be styled and every one of them draws it differently. */
+.file-label { display: inline-flex; align-items: center; margin-top: .75rem; cursor: pointer; }
+.file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-label:focus-within { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* --- quiz ----------------------------------------------------------------- */
+
+.nick-form { margin: .75rem 0; }
+.verdict { font-family: var(--mono); font-size: .875rem; margin: .5rem 0 0; }
+.verdict-right { color: var(--brand); font-weight: 600; }
+.verdict-wrong { color: var(--ink-2); }
+
+.score-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
+.score-row { display: flex; align-items: baseline; gap: .75rem; font-size: clamp(1rem, 1.6vw, 1.25rem); }
+.score-rank {
+  font-family: var(--mono); font-size: .8125rem; color: var(--ink-2);
+  width: 1.6em; text-align: right; font-variant-numeric: tabular-nums;
+}
+.score-nick { flex: 1 1 auto; font-weight: 500; }
+.score-points { font-family: var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.score-row.leading .score-nick { color: var(--brand); font-weight: 600; }
+.score-row.leading .score-points { color: var(--brand); }
+
+/* The right answer outranks the popular one once it is revealed. */
+.bar-row.is-right .bar-fill { opacity: 1; }
+.right-flag {
+  grid-column: 2 / -1;
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--brand);
+}
+
+/* --- audience questions --------------------------------------------------- */
+
+.qa-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; }
+.qa-items { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.qa-item {
+  display: flex; align-items: flex-start; gap: .6rem;
+  padding: .7rem .8rem; border: 1px solid var(--hairline); border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.qa-text { flex: 1 1 auto; margin: 0; }
+.qa-up { flex: 0 0 auto; font-variant-numeric: tabular-nums; min-height: 2.5rem; }
+.qa-own { flex: 0 0 auto; font-family: var(--mono); font-size: .75rem; color: var(--ink-2); white-space: nowrap; }
+
+.qa-board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+.qa-board-item { display: flex; align-items: baseline; gap: 1rem; font-size: clamp(1.05rem, 1.9vw, 1.5rem); }
+.qa-board-votes {
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  color: var(--ink-2); flex: 0 0 auto; min-width: 3.5em;
+}
+.qa-board-text { flex: 1 1 auto; }
+.qa-board-item.leading .qa-board-votes,
+.qa-board-item.leading .qa-board-text { color: var(--brand); font-weight: 600; }
+
+/* --- presenter tools ------------------------------------------------------ */
+
+.present-tools { display: flex; flex-wrap: wrap; gap: .75rem; }
+.adder, .recovery {
+  border: 1px solid var(--hairline); border-radius: var(--r);
+  background: var(--surface); padding: .6rem .9rem; flex: 1 1 18rem;
+}
+.adder summary, .recovery summary {
+  cursor: pointer; font-family: var(--mono); font-size: .8125rem;
+  font-weight: 600; letter-spacing: .02em; color: var(--ink-2);
+}
+.adder[open] summary, .recovery[open] summary { color: var(--ink); margin-bottom: .6rem; }
+.adder-body, .recovery-body { padding-top: .3rem; }

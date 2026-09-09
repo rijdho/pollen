@@ -20,11 +20,19 @@ const QUESTIONS = [
   { type: 'choice', prompt: 'Which of these worries you most?', options: ['Cost', 'Time', 'Nobody reads it'] },
   { type: 'scale', prompt: 'How clear was that session?', steps: 5, labels: { min: 'Not at all', max: 'Completely' } },
   { type: 'cloud', prompt: 'One word for open science', entries: 1, moderation: true },
+  { type: 'qa', prompt: 'What should we cover next?', moderation: true },
 ];
 const CHOICES = [[0], [0], [0], [0], [1], [1], [1], [2], [2], [2], [2], [2]]; // 4 / 3 / 5
 const RATINGS = [3, 4, 4, 4, 5, 5, 3, 4, 2, 5, 4, 4]; // mean 3.9, median 4
 const WORDS = ['Reuse', 'reuse', 'REUSE', 'Transparency', 'transparency', 'Access',
   'access', 'Access', 'Rigour', 'Funding', 'Trust', 'Slower'];
+const ASKED = [
+  'How do you fund the repository after the grant ends?',
+  'Does this work for a department with no metadata staff?',
+  'What happens to the data if the platform shuts down?',
+  'Can we reuse your rubric for our own audit?',
+];
+const BACKING = [3, 1, 2, 0]; // supports per question, in the order above
 
 const voter = (n) => 'shot' + String(n).padStart(8, '0');
 
@@ -92,6 +100,27 @@ for (const item of state.pending.slice(0, -2)) {
   });
 }
 await shot(presenter, 'presenter-cloud', { width: 1280, height: 900 });
+
+// Audience questions, moderated and supported, on the projected screen.
+await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 3 } } });
+for (const [i, text] of ASKED.entries()) {
+  await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(200 + i), body: { idx: 3, value: text } });
+}
+const waiting = await api(`/api/rooms/${code}/state`, { key: adminKey });
+for (const item of waiting.pending) {
+  await api(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey,
+    body: { action: 'moderate', payload: { voter: item.voter, seq: item.seq, approve: true } },
+  });
+}
+const listed = await api(`/api/rooms/${code}/qa?idx=3`);
+for (const [i, item] of listed.items.entries()) {
+  const wanted = BACKING[ASKED.indexOf(item.text)] ?? 0;
+  for (let n = 0; n < wanted; n += 1) {
+    await api(`/api/rooms/${code}/upvote`, { method: 'POST', who: voter(300 + i * 10 + n), body: { idx: 3, id: item.id } });
+  }
+}
+await shot(presenter, 'presenter-qa', { width: 1280, height: 820 });
 
 await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'close' } });
 await browser.close();

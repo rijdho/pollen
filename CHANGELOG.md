@@ -22,8 +22,40 @@ All notable changes to this project are documented here. The format follows
   dictionaries and the asset graph, plus a 56-check script that drives a running
   Worker end to end.
 
+### Added
+
+- **Audience questions.** The room asks, the room supports each other's, and the
+  presenter sees them ordered by support. Moderated by default like the word
+  cloud. The list is the one thing a phone fetches rather than receives, so a
+  room voting on questions does not multiply the message count by its own size.
+- **Quiz mode.** Any multiple-choice question can be given a right answer, which
+  makes a scoreboard appear for whoever entered a name. Which options are right
+  never reaches a phone until the presenter reveals them.
+- **Countdowns.** Any question can be timed. The clock is the server's, so it
+  cannot be extended by moving a phone's clock.
+- **Questions can be added to a room that is already running**, which was the
+  first thing anyone wanted mid-session.
+- **Saved question sets.** A set is kept on the device and can be exported as a
+  JSON file to carry to another machine or keep as a backup, then imported and
+  opened as a room in one click. This is what stands in for an account.
+- **Recovery links.** A running room can be reopened on another device. The key
+  travels in the URL fragment, which browsers never send to a server, and is
+  stripped from the address bar once claimed.
+- `npm run ui`, an 18-check script that drives the real pages in a real browser:
+  what `npm run live` does for the server contract, this does for the wiring.
+
 ### Security
 
+- **Right answers no longer leave the room object before the reveal.** They were
+  being sent to every phone inside the question spec and merely not drawn, which
+  put the answer one network panel away from anyone in the room. The test that
+  should have caught it was written as `A || B` with a `B` that was always true,
+  so it passed while checking nothing; it is now two assertions, and putting the
+  leak back turns them red.
+- **The public id of an audience question no longer carries the device that
+  asked it.** It was `token:seq`, so the list the whole room reads contained a
+  stable per-device identifier and two questions from one person were linkable
+  by anyone. It is now a plain position within the question.
 - `Strict-Transport-Security` added. Cloudflare does not send it unless it is
   switched on in the dashboard, and nothing here had checked; the header now
   lives in `public/_headers` with the rest of the policy so it travels with the

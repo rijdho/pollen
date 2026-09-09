@@ -50,6 +50,17 @@ another.
 Accents are not folded. `año` and `ano` are different words, and that particular merge is
 a joke at the room's expense in letters a foot high.
 
+## What may reach a phone
+
+`publicQuestion()` in `room.js` is the gate. Which options are right is stripped from every
+participant and follower payload until the presenter reveals them; the presenter's own view
+rebuilds the full spec. Sending it and not drawing it is not privacy, it is a network panel
+away.
+
+The same rule shapes audience questions. Their public id is a plain position within the
+question, never anything derived from the asker, because the list is read by the whole
+room. `own` is computed per request, so each viewer learns only about their own items.
+
 ## Traps already paid for
 
 - **Do not create the SQLite schema in a Durable Object constructor.** A closed room calls
@@ -64,12 +75,23 @@ a joke at the room's expense in letters a foot high.
   on every load while the header claimed `immutable`. Only `/fonts/*` sets it.
 - **DOM `append()` stringifies its arguments.** A conditional child written as `x && node`
   puts a literal `false` on the page. `el()` in `ui.js` filters falsy children; use it.
+- **Do not run one `python3 -c` replace across two functions that share a line.** The qa
+  and cloud writers had identical `INSERT` statements; an unbounded `.replace` patched both
+  and left the cloud path referring to a variable that only exists in the other. It failed
+  as a 500 on the next vote, not at parse time.
+- **A browser page that holds a WebSocket never reaches `networkidle0`.** Puppeteer waits
+  for it forever and the run hangs with no output, because the results were only printed at
+  the end. Wait for a selector and print as you go.
+- **Never drive a control that opens `confirm()`.** A modal dialog blocks the whole
+  automation session. `tests/ui.mjs` ends the room over the API instead.
+- **A second tab shares local storage.** The check that a stranger cannot open the presenter
+  view passed while proving nothing until it used an isolated browser context.
 - **The voter token must be 8 to 64 characters** of `[A-Za-z0-9_-]`. Shorter is refused
   with `no_voter`, which is a 400 and no broadcast, so a socket read after it hangs.
 
 ## Tests
 
-`npm test` is unit only and needs no server. `npm run live` needs `npm run dev` in another
+Three suites, and they cover different things. `npm test` is unit only and needs no server. `npm run live` needs `npm run dev` in another
 terminal and drives the real runtime: storage, the key gate, both socket kinds, the rate
 limit and the creation throttle.
 
@@ -102,10 +124,15 @@ empties it mid-loop.
 2. Connect Zenodo (press **Sync now**, the list is cached), cut v1.0.0, then add the DOI
    badge, `CITATION.cff` and the README `## Citation` section as the closing section.
 
+`npm run ui` needs a Chrome as well: `npm i puppeteer --no-save`, or point `CHROME_PATH` at
+one. It is the only thing that checks the pages are wired to the contract the other two
+prove.
+
 ## Worth doing, not yet done
 
-- **Questions cannot be added to a room that is already open.** The set is fixed when the
-  object is created. Appending one is a small admin action plus a broadcast, and it is the
-  first thing someone mid-session will want.
-- The presenter view has no way back to a room from another device. That is inherent to
-  having no accounts, but a printable or copyable recovery link would soften it.
+- Ranking questions (drag five things into an order), which is the one common type still
+  missing.
+- A per-question toggle to show results on phones. It is off by design and the cost model
+  says why, but a small room may be worth the exception, and the toggle should say what it
+  costs rather than hiding it.
+- Results as CSV alongside JSON, for anyone who wants to open them in a spreadsheet.

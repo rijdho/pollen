@@ -27,6 +27,21 @@ export const LIMITS = {
     minSteps: 2,
     maxSteps: 10,
   },
+  question: {
+    // Seconds a question stays open when it is timed. Zero means untimed,
+    // which stays the default: a countdown changes the feel of a room and
+    // should be a decision, not something that arrives with the tool.
+    maxSeconds: 600,
+  },
+  qa: {
+    maxChars: 240,          // a question, not an essay
+    maxPerVoter: 3,         // how many one person may ask
+    maxItems: 200,          // per question, across the room
+  },
+  quiz: {
+    maxNickChars: 20,
+    boardSize: 10,          // names shown on the projected scoreboard
+  },
   cloud: {
     maxChars: 40,          // an entry, not a sentence
     maxWords: 3,

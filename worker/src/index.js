@@ -58,6 +58,19 @@ async function route(request, env, url) {
     if (!voter) return json({ error: 'no_voter' }, 400);
     return forward(room, 'vote', { voter }, request);
   }
+  if (action === 'upvote' && request.method === 'POST') {
+    const voter = voterOf(request);
+    if (!voter) return json({ error: 'no_voter' }, 400);
+    return forward(room, 'upvote', { voter }, request);
+  }
+  if (action === 'nick' && request.method === 'POST') {
+    const voter = voterOf(request);
+    if (!voter) return json({ error: 'no_voter' }, 400);
+    return forward(room, 'nick', { voter }, request);
+  }
+  if (action === 'qa' && request.method === 'GET') {
+    return forward(room, 'qa', { voter: voterOf(request), idx: url.searchParams.get('idx') || '0' }, request);
+  }
   if (action === 'follow') {
     // No key: a follower socket carries only the current question, which is
     // exactly what anyone holding the code is entitled to see.

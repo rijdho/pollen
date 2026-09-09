@@ -10,7 +10,8 @@
     "dev": "wrangler dev",
     "deploy": "npm test && wrangler deploy",
     "live": "node tests/live.mjs",
-    "screenshots": "node docs/screenshots.mjs"
+    "screenshots": "node docs/screenshots.mjs",
+    "ui": "node tests/ui.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.81.1"

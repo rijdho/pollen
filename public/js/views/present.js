@@ -4,6 +4,7 @@ import { api, liveSocket, ApiError } from '../api.js?v=1';
 import { qrSvg } from '../qr.js?v=1';
 import { cloudWeight } from '../shared/aggregate.js?v=1';
 import { forget } from '../rooms.js?v=1';
+import { blankQuestion, typeLabel, promptField, typeFields, QUESTION_TYPES } from './qform.js?v=1';
 
 /**
  * The projected screen. It is the only view that sees results, and the only
@@ -24,22 +25,107 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     el('p', { class: 'join-code', text: code }),
   ]);
 
+  const countdown = el('p', { class: 'clock', hidden: true });
+  let skew = 0;
+  let ticker = null;
+
   const qrBox = el('div', { class: 'qr' });
   const qr = qrSvg(document, joinUrl);
   qr.setAttribute('aria-label', t('present.qrAlt', { url: joinUrl }));
   qrBox.append(qr);
 
   const stage = el('section', { class: 'stage' });
+  const scores = el('section', { class: 'card scores', hidden: true });
   const queue = el('section', { class: 'card moderation', hidden: true });
   const controls = el('div', { class: 'controls' });
 
+  // The key travels in the fragment, which browsers never send to a server, so
+  // the link stays out of request lines, edge logs and referrers. Anyone
+  // holding it controls the room, and the button says so when it copies.
+  const recoveryLink = `${location.origin}/p/${code}#k=${encodeURIComponent(adminKey)}`;
+  const recovery = el('details', { class: 'recovery' }, [
+    el('summary', { text: t('present.recovery') }),
+    el('div', { class: 'recovery-body' }, [
+      el('button', {
+        class: 'btn', type: 'button', text: t('present.copyLink'),
+        onClick: async () => {
+          try {
+            await navigator.clipboard.writeText(recoveryLink);
+            status(message, t('present.copied'), 'warn');
+          } catch {
+            status(message, recoveryLink, 'warn');
+          }
+        },
+      }),
+    ]),
+  ]);
+
+  const adder = el('details', { class: 'adder' });
+
   root.append(
-    el('header', { class: 'present-head' }, [link, qrBox, el('div', { class: 'present-meta' }, [voters, expiry])]),
+    el('header', { class: 'present-head' }, [
+      link, qrBox,
+      el('div', { class: 'present-meta' }, [voters, expiry, countdown]),
+    ]),
     stage,
+    scores,
     queue,
     controls,
+    el('div', { class: 'present-tools' }, [adder, recovery]),
     message,
   );
+
+  function secondsLeft() {
+    const seconds = state?.question?.spec?.seconds || 0;
+    if (!seconds || !state.startedAt) return null;
+    return Math.max(0, Math.ceil((state.startedAt + seconds * 1000 - (Date.now() + skew)) / 1000));
+  }
+
+  function runClock() {
+    clearInterval(ticker);
+    ticker = null;
+    const tick = () => {
+      const left = secondsLeft();
+      if (left === null) { countdown.hidden = true; return; }
+      countdown.hidden = false;
+      countdown.textContent = left > 0 ? t('present.timeLeft', { n: left }) : t('present.timeUp');
+      countdown.dataset.out = left === 0 ? 'true' : 'false';
+      if (left === 0) { clearInterval(ticker); ticker = null; }
+    };
+    tick();
+    if (secondsLeft() !== null) ticker = setInterval(tick, 500);
+  }
+
+  /** Adding a question to a room that is already running. */
+  function drawAdder() {
+    clear(adder);
+    let draft = blankQuestion('choice');
+    const body = el('div', { class: 'adder-body' });
+    const redraw = () => {
+      clear(body);
+      body.append(
+        el('div', { class: 'actions' }, QUESTION_TYPES.map((type) => el('button', {
+          class: draft.type === type ? 'btn btn-brand' : 'btn', type: 'button',
+          text: typeLabel(type),
+          onClick: () => { draft = blankQuestion(type); redraw(); },
+        }))),
+        promptField(draft),
+        typeFields(draft),
+        el('button', {
+          class: 'btn btn-brand btn-lg', type: 'button', text: t('present.addNow'),
+          onClick: async () => {
+            if (draft.prompt.trim() === '') { status(message, t('editor.empty'), 'error'); return; }
+            await act('add', { question: draft });
+            draft = blankQuestion(draft.type);
+            redraw();
+          },
+        }),
+      );
+    };
+    redraw();
+    adder.append(el('summary', { text: t('present.add') }), body);
+  }
+  drawAdder();
 
   let state = null;
 
@@ -63,7 +149,9 @@ export function renderPresent(root, { code, adminKey, onHome }) {
   }
 
   function paint(next) {
+    if (typeof next.now === 'number') skew = next.now - Date.now();
     state = next;
+    runClock();
     voters.textContent = t('present.voters', { n: state.voters });
     // The room deleting itself is the whole privacy claim, so the person
     // standing next to the screen can read when it happens.
@@ -73,6 +161,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     drawStage();
     drawQueue();
     drawControls();
+    drawScores();
   }
 
   function drawStage() {
@@ -88,26 +177,68 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     );
   }
 
+  /** Only where something can be right. A scoreboard on a poll is nonsense. */
+  function drawScores() {
+    const board = state.scores;
+    scores.hidden = !board;
+    if (!board) return;
+    clear(scores);
+    scores.append(el('p', { class: 'eyebrow', text: t('present.scoreboard') }));
+    if (board.rows.length === 0) {
+      scores.append(el('p', { class: 'hint', text: t('present.noScores') }));
+      return;
+    }
+    scores.append(el('ol', { class: 'score-list' }, board.rows.map((row, i) => el('li', {
+      class: i === 0 ? 'score-row leading' : 'score-row',
+    }, [
+      el('span', { class: 'score-rank', text: String(i + 1) }),
+      el('span', { class: 'score-nick', text: row.nick }),
+      el('span', { class: 'score-points', text: t('present.points', { n: row.score, of: board.of }) }),
+    ]))));
+  }
+
+  function qaChart(data) {
+    return el('ol', { class: 'qa-board' }, data.items.map((item, i) => el('li', {
+      class: i === 0 ? 'qa-board-item leading' : 'qa-board-item',
+    }, [
+      el('span', {
+        class: 'qa-board-votes', text: '▲ ' + item.votes,
+        'aria-label': t('present.supports', { n: item.votes }),
+      }),
+      el('span', { class: 'qa-board-text', text: item.text }),
+    ])));
+  }
+
   function results(question, data) {
+    if (data && data.type === 'qa') {
+      return data.items.length === 0
+        ? el('p', { class: 'stage-idle', text: t('present.qaEmpty') })
+        : qaChart(data);
+    }
     if (!data || (data.type === 'choice' && data.responses === 0)
       || (data.type === 'scale' && data.n === 0)
       || (data.type === 'cloud' && data.items.length === 0)) {
       return el('p', { class: 'stage-idle', text: t('present.noAnswers') });
     }
-    if (data.type === 'choice') return choiceChart(data);
+    if (data.type === 'choice') return choiceChart(question, data);
     if (data.type === 'scale') return scaleChart(question, data);
     return cloudChart(data);
   }
 
   const LETTERS = 'ABCDEFGH';
 
-  function choiceChart(data) {
+  function choiceChart(question, data) {
     const top = Math.max(...data.counts);
     return el('div', { class: 'bars' }, data.options.map((label, i) => {
       // Only a real leader is marked. With everything tied, nothing leads, and
       // saying otherwise would be the chart inventing a result.
       const leads = data.counts[i] === top && top > 0 && data.counts.filter((c) => c === top).length === 1;
-      return el('div', { class: leads ? 'bar-row leading' : 'bar-row' }, [
+      // Once revealed, being right outranks being popular: the mark goes on
+      // the correct option whether or not the room chose it.
+      const right = state.revealed && (question.spec.correct || []).includes(i);
+      const classes = ['bar-row', leads ? 'leading' : '', right ? 'is-right' : ''].filter(Boolean).join(' ');
+      return el('div', { class: classes }, [
+        right ? el('span', { class: 'right-flag', text: t('present.correct') }) : null,
         el('span', { class: 'bar-key', 'aria-hidden': 'true', text: LETTERS[i] || String(i + 1) }),
         el('span', { class: 'bar-name', text: label }),
         el('span', { class: 'bar-value' }, [
@@ -195,7 +326,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
 
   function drawQueue() {
     const items = state.pending || [];
-    queue.hidden = !state.question || state.question.type !== 'cloud';
+    queue.hidden = !state.question || !['cloud', 'qa'].includes(state.question.type);
     if (queue.hidden) return;
     clear(queue);
     // The status colouring belongs to a queue that has something in it. An
@@ -234,6 +365,13 @@ export function renderPresent(root, { code, adminKey, onHome }) {
         class: 'btn btn-quiet', type: 'button', disabled: at < 0, text: t('present.reset'),
         onClick: () => { if (confirm(t('present.resetConfirm'))) act('reset'); },
       }),
+      (state.question?.spec?.correct || []).length > 0
+        ? el('button', {
+          class: state.revealed ? 'btn' : 'btn btn-brand', type: 'button',
+          text: state.revealed ? t('present.hideAnswer') : t('present.reveal'),
+          onClick: () => act('reveal', { revealed: !state.revealed }),
+        })
+        : null,
       el('button', { class: 'btn btn-quiet', type: 'button', text: t('present.export'), onClick: download }),
       el('button', {
         class: 'btn btn-quiet', type: 'button', text: t('present.close'),
@@ -286,5 +424,8 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     status(message, t('error.' + (err instanceof ApiError ? err.code : 'internal')), 'error');
   });
 
-  return () => socket.close();
+  return () => {
+    clearInterval(ticker);
+    socket.close();
+  };
 }

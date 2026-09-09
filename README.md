@@ -25,7 +25,8 @@ with 5, the leader picked out in violet.](docs/presenter-choice.png)
 
 ## What it does
 
-Three kinds of question, chosen when the room is created:
+Four kinds of question, added when the room is created or at any point while it is
+running:
 
 - **Multiple choice.** Up to eight options, single or multiple selection. Bars with whole
   percentages that add up to exactly 100.
@@ -33,6 +34,19 @@ Three kinds of question, chosen when the room is created:
   drawn where it actually falls, plus the median and the number of answers.
 - **Word cloud.** One to three short entries per person, merged by spelling, sized and
   weighted by how often they were said.
+- **Audience questions.** The room writes the questions and supports each other's; the
+  presenter sees them ordered by support and answers the ones that rise.
+
+Any multiple-choice question can be given a right answer, which turns it into a quiz: the
+presenter reveals the answer when they choose, and a scoreboard appears for whoever
+entered a name. Any question can be given a countdown, timed by the server so it cannot be
+extended from a phone.
+
+![The projected screen during audience questions. Four questions from the room, ordered by
+support: "How do you fund the repository after the grant ends?" with 3, "What happens to
+the data if the platform shuts down?" with 2, "Does this work for a department with no
+metadata staff?" with 1, and "Can we reuse your rubric for our own audit?" with none. The
+most supported one is picked out in violet.](docs/presenter-qa.png)
 
 ![The projected screen during a rating scale. A large violet 3.9 labelled MEAN sits to the
 left, with "Median 4 · 12 answers" under it. To the right, five columns headed 0, 1, 2, 6
@@ -46,6 +60,21 @@ clear a question, download the results as JSON, or end the session and delete ev
 and Rigour are centred and sized by how often each was said, with a small count beside the
 three commonest, and an amber panel below holds two entries waiting for approval, Trust and
 Slower, each with a Show and a Hide button.](docs/presenter-cloud.png)
+
+### Keeping your work without an account
+
+The two things an account normally buys are a place to keep your questions and a way back
+into your own session. Both are here without one.
+
+A **question set** is saved on your device and can be exported as a JSON file, which is
+yours: carry it to another machine, keep it as a backup, or hand it to a colleague. Opening
+a room from a set takes one click, and the set is never sent anywhere until you do.
+
+A **recovery link** reopens a running room on another device. The key travels in the URL
+fragment, which browsers never send to a server, so it stays out of request lines, out of
+edge logs and out of referrers; the page claims it, writes it to that device and strips it
+from the address bar. Anyone holding that link controls the room, and the button that
+copies it says so.
 
 ### Free-text answers wait for approval
 
@@ -87,7 +116,14 @@ request, so what is broadcast to the whole room has to be rare:
   presenter actually moves, which is perhaps ten times in a session.
 
 Phones never receive the running results. That is a deliberate limitation and the reason
-this fits in a free plan at all.
+this fits in a free plan at all. Audience questions are the one list a phone does see, and
+it is **fetched when asked for rather than streamed**, for exactly the same reason: a room
+supporting each other's questions changes the list every second or two, and pushing that to
+everyone would multiply it by the size of the room.
+
+Which options are right never reaches a phone until the presenter reveals them. Sending
+them and simply not drawing them would put the answer one network panel away from anyone in
+the room, which on a quiz is the whole game.
 
 ### What it costs to run
 
@@ -118,7 +154,8 @@ their browser's local storage and nowhere else.
 ```bash
 npm test          # 45 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
-npm run live      # 56 end-to-end checks against the running Worker
+npm run live      # 93 end-to-end checks against the running Worker
+npm run ui        # 18 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
@@ -128,9 +165,18 @@ decoding it with an independent implementation, dictionary parity across the thr
 languages including the placeholders inside each string, and the module graph's version
 pinning.
 
+`npm run live` covers what only the runtime can answer: storage, the key gate, both kinds of
+socket, the server-side clock, the rate limits and the creation throttle. `npm run ui`
+covers the wiring: that a set saves, that a room opens, that a phone is never handed the
+right answer, that the scoreboard fills, and that a recovery link hands the room to a device
+that had nothing.
+
 The suite was checked against seventeen deliberately planted defects and killed all of
 them, including one round of it that killed only sixteen and exposed a test asserting
-something it did not mean.
+something it did not mean. A later check written as `A || B` with a `B` that was always true
+passed while proving nothing at all, and was hiding a real leak of the right answers to
+every phone in the room; it is now two separate assertions, and putting the leak back turns
+them red.
 
 ## Run locally
 
@@ -194,8 +240,15 @@ glossed over.
   usefully be guessed from outside, but it is not a secret.
 - **Phones do not see the results.** By design, as above. If a room needs everyone to see
   the tally on their own device, this is the wrong tool.
-- **Lose the browser, lose the room.** The key to a room lives in local storage. There is
-  no account to recover it from, and nobody at the other end can restore it.
+- **A recovery link is the room.** It is not a login, it is the key itself in a URL. Anyone
+  who gets hold of it can drive the projector, clear a question or end the session. Send it
+  to yourself, not to a channel, and do not put it on a slide.
+- **Lose every device, lose the room.** The key lives in local storage and in any recovery
+  link you made. There is no account to recover it from, and nobody at the other end can
+  restore it.
+- **A scoreboard is not an exam.** Names are typed by whoever is holding the phone, one
+  device can be handed to someone else, and the device caveat above applies in full. It is
+  a game for a room, not an assessment.
 - **Moderation is a person, not a filter.** There is no profanity list and no
   classifier. What protects the projector is that someone reads each entry before it
   appears. Leave it on.

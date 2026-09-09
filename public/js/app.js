@@ -36,6 +36,16 @@ function route() {
 
   if (parts[0] === 'p' && parts.length === 2) {
     const code = normaliseCode(parts[1]);
+    // A recovery link carries the key in the FRAGMENT, which browsers never
+    // send to the server: it stays out of request lines, out of edge logs and
+    // out of any referrer. It is claimed once, written to this device, and
+    // stripped from the address bar so a screenshot of the room does not hand
+    // control of it to the room.
+    const fromLink = location.hash.startsWith('#k=') ? decodeURIComponent(location.hash.slice(3)) : '';
+    if (code && fromLink) {
+      remember(code, fromLink, Date.now() + 12 * 3600 * 1000);
+      history.replaceState({}, '', '/p/' + code);
+    }
     const key = code && keyFor(code);
     if (!key) return view(function home() { return showHome(t('error.forbidden')); });
     return view(function present() {
@@ -57,6 +67,8 @@ function showHome(error) {
     onCreate: () => view(function editor() { return showEditor(); }),
     onJoin: (code) => go('/' + code),
     onPresent: (code) => go('/p/' + code),
+    onOpenDeck: (deck) => view(function editor() { return showEditor(deck); }),
+    onRefresh: () => view(function home() { return showHome(); }),
   });
   if (error) {
     const box = el('p', { class: 'status', 'data-kind': 'error', role: 'status', text: error });
@@ -64,8 +76,9 @@ function showHome(error) {
   }
 }
 
-function showEditor() {
+function showEditor(deck = null) {
   renderEditor(main, {
+    deck,
     onBack: () => go('/'),
     onCreate: async (questions, message) => {
       try {
