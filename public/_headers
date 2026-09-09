@@ -1,0 +1,29 @@
+# GitHub Pages can only carry a <meta> policy; a Worker serving its own assets
+# gets real response headers, which is the only way to get frame-ancestors.
+#
+# The policy starts at default-src 'none' and names what the page actually
+# uses. Nothing is loaded from another origin: the font is served from here,
+# the QR encoder is vendored, and there is no analytics of any kind.
+#
+# style-src is 'self' with no 'unsafe-inline': the bars and the word cloud are
+# sized through element.style, which CSP does not govern. Keep it that way. A
+# style="" attribute anywhere in the application would need this loosened, and
+# loosening it would also re-admit any injected style attribute.
+#
+# connect-src 'self' covers the WebSocket, because 'self' matches ws: and wss:
+# on the page's own origin. Verify that in a browser rather than trusting it.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
+
+# No Cache-Control above on purpose. Rules here ADD to each other rather than
+# replacing, so a value on /* and another on /fonts/* both end up on a font and
+# the browser takes the first: the fonts would revalidate on every load while
+# the header claimed they were immutable. The platform default for everything
+# else is already public, max-age=0, must-revalidate, which is what a page with
+# no content hashing in its filenames needs.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
