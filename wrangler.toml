@@ -1,10 +1,11 @@
 name = "pollen"
 main = "worker/src/index.js"
-# The newest date the pinned wrangler runtime can actually run locally, so what
-# is tested here and what is deployed are the same runtime. Everything this
-# Worker depends on is older than it: SQLite-backed Durable Objects, and the
-# navigation-request behaviour for static assets, which lands at 2025-04-01.
-compatibility_date = "2026-04-16"
+# Pinned to a date the wrangler in devDependencies can actually run locally, so
+# the runtime that passes `npm run live` is the runtime that gets deployed.
+# Raising it means checking `npm run dev` still starts, not just editing this
+# line. Everything this Worker depends on is older: SQLite-backed Durable
+# Objects, and the navigation-request behaviour for static assets (2025-04-01).
+compatibility_date = "2026-09-09"
 
 # Never on the workers.dev namespace: that hostname publishes the account
 # namespace, and private workers live on it under guessable names.

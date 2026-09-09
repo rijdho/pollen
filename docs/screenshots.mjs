@@ -18,9 +18,11 @@ mkdirSync(OUT, { recursive: true });
 
 const QUESTIONS = [
   { type: 'choice', prompt: 'Which of these worries you most?', options: ['Cost', 'Time', 'Nobody reads it'] },
+  { type: 'scale', prompt: 'How clear was that session?', steps: 5, labels: { min: 'Not at all', max: 'Completely' } },
   { type: 'cloud', prompt: 'One word for open science', entries: 1, moderation: true },
 ];
 const CHOICES = [[0], [0], [0], [0], [1], [1], [1], [2], [2], [2], [2], [2]]; // 4 / 3 / 5
+const RATINGS = [3, 4, 4, 4, 5, 5, 3, 4, 2, 5, 4, 4]; // mean 3.9, median 4
 const WORDS = ['Reuse', 'reuse', 'REUSE', 'Transparency', 'transparency', 'Access',
   'access', 'Access', 'Rigour', 'Funding', 'Trust', 'Slower'];
 
@@ -66,13 +68,20 @@ for (const [i, pick] of CHOICES.entries()) {
 await presenter.goto(`${BASE}/p/${code}`, { waitUntil: 'networkidle0' });
 await shot(presenter, 'presenter-choice', { width: 1280, height: 760 });
 
+await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 1 } } });
+for (const [i, value] of RATINGS.entries()) {
+  await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(50 + i), body: { idx: 1, value } });
+}
+await shot(presenter, 'presenter-scale', { width: 1280, height: 800 });
+await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 0 } } });
+
 const phone = await browser.newPage();
 await phone.goto(`${BASE}/${code}`, { waitUntil: 'networkidle0' });
 await shot(phone, 'participant', { width: 420, height: 720 });
 
-await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 1 } } });
+await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 2 } } });
 for (const [i, word] of WORDS.entries()) {
-  await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(100 + i), body: { idx: 1, value: word } });
+  await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(100 + i), body: { idx: 2, value: word } });
 }
 // Approve everything except the last two, so the queue is visibly doing its job.
 const state = await api(`/api/rooms/${code}/state`, { key: adminKey });

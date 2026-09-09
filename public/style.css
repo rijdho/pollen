@@ -32,6 +32,8 @@
   --ink: #17151f;
   --ink-2: #52505e;
   --hairline: #e5e3ef;
+  --track: var(--surface-3);
+  --shadow: 0 1px 2px rgb(23 21 31 / 6%), 0 8px 24px rgb(23 21 31 / 5%);
   --r: 14px;
   --r-sm: 9px;
   --disp: "Inter Variable", "Inter", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
@@ -52,6 +54,7 @@
     --ink: #f2f0f8;
     --ink-2: #a9a5b8;
     --hairline: #2c2839;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
     --pending: #e0a349;
     --pending-soft: #2a2113;
   }
@@ -67,6 +70,7 @@
   --ink: #f2f0f8;
   --ink-2: #a9a5b8;
   --hairline: #2c2839;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
   --pending: #e0a349;
   --pending-soft: #2a2113;
 }
@@ -78,14 +82,33 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--body-f);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 { font-family: var(--disp); line-height: 1.2; margin: 0; }
+/* Weight 800 and negative tracking are what make the family's headings read as
+   one hand; text-wrap: balance keeps a projected question from leaving one
+   word alone on the second line. */
+h1, h2, h3 {
+  font-family: var(--disp);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+  margin: 0;
+}
 p { margin: 0 0 .75rem; }
 a { color: var(--brand); }
+
+/* Every number on a screen that updates while people watch. Without tabular
+   figures a percentage going from 33 to 44 changes width, and the whole row
+   twitches on the wall. */
+.bar-value, .column-count, .column-step, .meta-count, .stage-meta, .join-code,
+.code-input, .code-chip, .scale-reading, .cloud-word-count, .queue-count {
+  font-variant-numeric: tabular-nums;
+}
 
 .skip {
   position: absolute;
@@ -145,15 +168,16 @@ a { color: var(--brand); }
   border: 1px solid var(--hairline);
   border-radius: var(--r);
   padding: clamp(1rem, 3vw, 1.5rem);
-  box-shadow: 0 1px 2px rgb(23 21 31 / 4%);
+  box-shadow: var(--shadow);
 }
 .card-title { font-size: 1.125rem; margin-bottom: .75rem; }
-.lede { font-size: 1.0625rem; color: var(--ink); max-width: 46ch; }
+.lede { font-size: .95rem; color: var(--ink-2); max-width: 62ch; }
+.lede b { color: var(--ink); font-weight: 600; }
 .hint { color: var(--ink-2); font-size: .875rem; margin: .5rem 0 0; }
 
 .eyebrow {
-  font-family: var(--mono); font-size: .6875rem; text-transform: uppercase;
-  letter-spacing: .12em; color: var(--brand); margin: 0 0 .35rem;
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--brand); margin: 0 0 .35rem;
 }
 
 .status { margin: .75rem 0 0; font-size: .875rem; color: var(--ink-2); }
@@ -163,7 +187,7 @@ a { color: var(--brand); }
 /* --- controls ------------------------------------------------------------- */
 
 .btn {
-  font-family: var(--mono); font-size: .8125rem; letter-spacing: .01em;
+  font-family: var(--mono); font-size: .8125rem; font-weight: 600; letter-spacing: .02em;
   padding: .55rem .9rem; border-radius: var(--r-sm);
   border: 1px solid var(--hairline); background: var(--surface-2); color: var(--ink);
   cursor: pointer;
@@ -203,6 +227,13 @@ a { color: var(--brand); }
 /* --- editor --------------------------------------------------------------- */
 
 .q-list { display: flex; flex-direction: column; gap: .75rem; }
+/* Dashed, and outside the card rhythm, so it reads as "keep going" rather than
+   as another question you have already added. */
+.add-row {
+  border: 1px dashed var(--hairline); border-radius: var(--r);
+  padding: clamp(.75rem, 2vw, 1.1rem); background: transparent;
+}
+.add-row .actions { margin-top: .25rem; }
 .q-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .q-tools { display: flex; gap: .25rem; }
 .q-body { margin-top: .5rem; }
@@ -234,24 +265,83 @@ a { color: var(--brand); }
 .stage-prompt { font-size: clamp(1.5rem, 4vw, 2.75rem); }
 .stage-idle { color: var(--ink-2); font-size: 1.25rem; }
 .stage-meta { font-family: var(--mono); font-size: .875rem; color: var(--ink-2); }
+.queue-count { font-family: var(--mono); font-size: .8rem; color: var(--ink-2); }
 
-.bars { display: flex; flex-direction: column; gap: .85rem; }
-.bar-label { display: flex; justify-content: space-between; gap: 1rem; font-size: clamp(1rem, 1.8vw, 1.35rem); }
-.bar-value { font-family: var(--mono); color: var(--ink-2); white-space: nowrap; }
-.bar-track { height: clamp(.75rem, 2vw, 1.25rem); background: var(--surface-3); border-radius: 999px; overflow: hidden; margin-top: .3rem; }
-.bar-fill { height: 100%; background: var(--brand); border-radius: 999px; transition: width .35s ease; }
+/* Multiple choice. The letter is not decoration: it gives a room a way to say
+   "B" out loud while the bars are on the wall. */
+.bars { display: flex; flex-direction: column; gap: clamp(.7rem, 1.6vw, 1.1rem); }
+.bar-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .75rem 1rem; }
+.bar-key {
+  grid-row: span 2;
+  font-family: var(--mono); font-weight: 600;
+  font-size: clamp(.85rem, 1.4vw, 1.05rem); color: var(--ink-2);
+  width: 2em; height: 2em; display: grid; place-items: center;
+  border: 1px solid var(--hairline); border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.bar-name { font-size: clamp(1rem, 1.8vw, 1.35rem); font-weight: 500; }
+.bar-value { font-family: var(--mono); white-space: nowrap; text-align: right; line-height: 1.1; }
+.bar-pct { display: block; font-size: clamp(1.1rem, 2.2vw, 1.7rem); font-weight: 600; }
+.bar-count { display: block; font-size: .8rem; color: var(--ink-2); }
+.bar-track {
+  grid-column: 2 / -1;
+  height: clamp(.5rem, 1.2vw, .8rem);
+  background: var(--track); border-radius: 999px; overflow: hidden;
+}
+.bar-fill { height: 100%; background: var(--brand); border-radius: 999px; transition: width .4s ease; opacity: .55; }
+/* The leader is data, not chrome, so it may carry emphasis. */
+.bar-row.leading .bar-fill { opacity: 1; }
+.bar-row.leading .bar-key { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+.bar-row.leading .bar-pct { color: var(--brand); }
 
-.scale-chart { display: flex; flex-direction: column; gap: .5rem; }
-.columns { display: flex; align-items: flex-end; gap: .5rem; height: clamp(9rem, 26vh, 18rem); }
-.column { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: .35rem; height: 100%; }
-.column-track { flex: 1 1 auto; width: 100%; display: flex; align-items: flex-end; }
-.column-fill { width: 100%; background: var(--brand); border-radius: var(--r-sm) var(--r-sm) 0 0; transition: height .35s ease; min-height: 2px; }
-.column-count { font-family: var(--mono); font-size: .8125rem; color: var(--ink-2); }
-.column-step { font-family: var(--mono); font-size: 1rem; }
-.scale-ends { display: flex; justify-content: space-between; color: var(--ink-2); font-size: .875rem; }
+.scale-chart { display: grid; grid-template-columns: auto 1fr; gap: 0 clamp(1rem, 3vw, 2rem); align-items: end; }
+.scale-reading { font-family: var(--mono); text-align: center; padding-bottom: 1.6rem; }
+.scale-reading-value { display: block; font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight: 600; color: var(--brand); line-height: 1; }
+.scale-reading-name { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .14em; color: var(--ink-2); margin-top: .4rem; }
+.scale-reading-sub { display: block; font-size: .8rem; color: var(--ink-2); margin-top: .5rem; }
+.scale-plot { display: flex; flex-direction: column; }
+/* Every row is the same flex layout, so a column, its count and its step label
+   always share one vertical line and the mean marker can be positioned in the
+   same coordinate space. */
+.scale-row { display: flex; gap: .5rem; }
+.scale-row > * { flex: 1 1 0; min-width: 0; text-align: center; }
+.scale-counts { align-items: flex-end; margin-bottom: .3rem; }
+.scale-tracks { position: relative; align-items: flex-end; height: clamp(8rem, 24vh, 14rem); padding-top: 1.1rem; }
+.scale-steps { margin-top: .4rem; }
+.column-track { height: 100%; display: flex; align-items: flex-end; }
+.column-fill { width: 100%; background: var(--brand); border-radius: var(--r-sm) var(--r-sm) 0 0; transition: height .4s ease; min-height: 2px; opacity: .5; }
+.column-fill.tallest { opacity: 1; }
+.column-count { font-family: var(--mono); font-size: .875rem; color: var(--ink-2); }
+.column-count.is-top { color: var(--ink); font-weight: 600; }
+.column-step { font-family: var(--mono); font-size: 1rem; font-weight: 600; }
+/* Where the mean falls, which a histogram alone does not say. It is drawn over
+   the bars, not under the labels, so it reads against the data it describes. */
+.mean-mark {
+  position: absolute; top: 0; bottom: 0; width: 0;
+  /* Ink, not brand: the marker crosses the tallest bar, and a violet line on a
+     violet bar is an annotation nobody can see. */
+  border-left: 2px dashed var(--ink);
+  transition: left .4s ease; pointer-events: none;
+}
+.mean-mark::after {
+  content: attr(data-label);
+  position: absolute; top: 0; left: .3rem;
+  padding: .05rem .3rem; border-radius: 4px;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--mono); font-size: .75rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.scale-ends { grid-column: 2; display: flex; justify-content: space-between; color: var(--ink-2); font-size: .875rem; margin-top: .35rem; }
+@media (max-width: 46rem) {
+  .scale-chart { grid-template-columns: 1fr; }
+  .scale-ends { grid-column: 1; }
+}
 
-.cloud { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem 1rem; }
-.cloud-word { font-family: var(--disp); font-weight: 600; line-height: 1.1; color: var(--brand); }
+/* Centred so it reads as a cloud rather than a list, and baseline-aligned so
+   words of very different sizes still sit on a line together. */
+.cloud { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .2rem 1.1rem; padding: .5rem 0; }
+.cloud-word { font-family: var(--disp); line-height: 1.05; color: var(--brand); letter-spacing: -0.02em; }
+.cloud-word-count { font-family: var(--mono); font-size: .55em; font-weight: 500; color: var(--ink-2); margin-left: .25em; vertical-align: super; }
 
 /* The 3px left edge is a status marker and appears only while words are
    actually waiting. It is never brand violet: chrome does not carry meaning. */

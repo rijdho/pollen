@@ -240,19 +240,32 @@ console.log('abuse controls');
 
 {
   const address = FLOOD_ADDRESS;
-  const statuses = [];
-  for (let i = 0; i < 12; i += 1) {
-    const res = await call('/api/rooms', {
-      method: 'POST', address,
-      body: { questions: [{ type: 'choice', prompt: 'Flood', options: ['a', 'b'] }] },
-    });
-    statuses.push(res.status);
+  const good = { questions: [{ type: 'choice', prompt: 'Flood', options: ['a', 'b'] }] };
+  const bad = { questions: [{ type: 'choice', prompt: 'Broken', options: ['only'] }] };
+
+  // Ten refused attempts first. None of them opens a room, so none of them may
+  // cost anything: charging for failures is what locked out someone who had
+  // successfully opened nothing.
+  for (let i = 0; i < 10; i += 1) {
+    const res = await call('/api/rooms', { method: 'POST', address, body: bad });
+    if (res.status !== 422) check('a refused creation stays refused', false, res);
+  }
+  const afterFailures = await call('/api/rooms', { method: 'POST', address, body: good });
+  check('failed attempts do not spend the creation budget', afterFailures.status === 200, afterFailures);
+
+  const statuses = [afterFailures.status];
+  for (let i = 0; i < 32; i += 1) {
+    statuses.push((await call('/api/rooms', { method: 'POST', address, body: good })).status);
   }
   check('one address cannot open rooms without end', statuses.includes(429), statuses.join(','));
-  check('ten rooms an hour is the point it stops',
-    statuses.slice(0, 10).every((s) => s === 200), statuses.slice(0, 10).join(','));
+  check('the limit is thirty an hour, and it bites exactly there',
+    statuses.slice(0, 30).every((s) => s === 200) && statuses[30] === 429,
+    statuses.slice(28, 32).join(','));
+  const blocked = await call('/api/rooms', { method: 'POST', address, body: good });
+  check('the refusal says how long the wait is',
+    blocked.data.retryAfter > 0 && blocked.data.retryAfter <= 3600, blocked.data);
   check('a different address is unaffected',
-    (await call('/api/rooms', { method: 'POST', address: OTHER_ADDRESS, body: { questions: [{ type: 'choice', prompt: 'Fine', options: ['a', 'b'] }] } })).status === 200);
+    (await call('/api/rooms', { method: 'POST', address: OTHER_ADDRESS, body: good })).status === 200);
 }
 
 {

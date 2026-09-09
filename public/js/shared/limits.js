@@ -29,6 +29,11 @@ export const LIMITS = {
   },
   rate: {
     votesPerMinute: 20,    // per voter token, inside the room
-    roomsPerHourPerIp: 10, // creation, in the shared throttle object
+    // Creation, counted in the shared throttle object, and charged only when a
+    // room actually opens. Set for the person who spends an afternoon building
+    // and re-building a set of questions, not for the tidiest possible number:
+    // a limit that a legitimate user trips over is a broken tool, and the abuse
+    // it exists to stop looks nothing like thirty.
+    roomsPerHourPerIp: 30,
   },
 };

@@ -99,52 +99,97 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     return cloudChart(data);
   }
 
+  const LETTERS = 'ABCDEFGH';
+
   function choiceChart(data) {
-    return el('div', { class: 'bars' }, data.options.map((label, i) => el('div', { class: 'bar-row' }, [
-      el('div', { class: 'bar-label' }, [
+    const top = Math.max(...data.counts);
+    return el('div', { class: 'bars' }, data.options.map((label, i) => {
+      // Only a real leader is marked. With everything tied, nothing leads, and
+      // saying otherwise would be the chart inventing a result.
+      const leads = data.counts[i] === top && top > 0 && data.counts.filter((c) => c === top).length === 1;
+      return el('div', { class: leads ? 'bar-row leading' : 'bar-row' }, [
+        el('span', { class: 'bar-key', 'aria-hidden': 'true', text: LETTERS[i] || String(i + 1) }),
         el('span', { class: 'bar-name', text: label }),
-        el('span', { class: 'bar-value', text: `${data.percentages[i]}% (${data.counts[i]})` }),
-      ]),
-      el('div', { class: 'bar-track' }, [
-        el('div', { class: 'bar-fill', style: { width: data.percentages[i] + '%' } }),
-      ]),
-    ])));
+        el('span', { class: 'bar-value' }, [
+          el('span', { class: 'bar-pct', text: data.percentages[i] + '%' }),
+          el('span', { class: 'bar-count', text: t('present.responses', { n: data.counts[i] }) }),
+        ]),
+        el('div', { class: 'bar-track' }, [
+          el('div', { class: 'bar-fill', style: { width: data.percentages[i] + '%' } }),
+        ]),
+      ]);
+    }));
   }
 
   function scaleChart(question, data) {
     const max = Math.max(...data.histogram, 1);
+    const steps = question.spec.steps;
     const labels = question.spec.labels || { min: '', max: '' };
+    // Column centres sit at (i + 0.5) / steps of the width, so a mean of 1
+    // lands on the first column and a mean of `steps` on the last.
+    const meanAt = ((data.mean - 0.5) / steps) * 100;
+
     return el('div', { class: 'scale-chart' }, [
-      el('div', { class: 'columns' }, data.histogram.map((n, i) => el('div', { class: 'column' }, [
-        el('div', { class: 'column-track' }, [
-          el('div', { class: 'column-fill', style: { height: Math.round((n / max) * 100) + '%' } }),
+      el('div', { class: 'scale-reading' }, [
+        el('span', { class: 'scale-reading-value', text: data.mean.toFixed(1) }),
+        el('span', { class: 'scale-reading-name', text: t('present.meanLabel') }),
+        el('span', { class: 'scale-reading-sub', text: [
+          t('present.median', { value: data.median }),
+          t('present.responses', { n: data.n }),
+        ].join(' · ') }),
+      ]),
+      // Three rows laid out identically rather than three stacked children per
+      // column: it is what lets the mean marker sit in the same coordinate
+      // space as the bars, and it keeps the count above its own bar instead of
+      // below it, where it read as another step on the scale.
+      el('div', { class: 'scale-plot' }, [
+        el('div', { class: 'scale-row scale-counts' }, data.histogram.map((n) =>
+          el('span', { class: n === max && max > 0 ? 'column-count is-top' : 'column-count', text: String(n) }))),
+        el('div', { class: 'scale-row scale-tracks' }, [
+          ...data.histogram.map((n) => el('div', { class: 'column-track' }, [
+            el('div', {
+              class: n === max && max > 0 ? 'column-fill tallest' : 'column-fill',
+              style: { height: Math.round((n / max) * 100) + '%' },
+            }),
+          ])),
+          el('div', {
+            class: 'mean-mark',
+            dataset: { label: data.mean.toFixed(1) },
+            style: { left: meanAt + '%' },
+          }),
         ]),
-        el('span', { class: 'column-count', text: String(n) }),
-        el('span', { class: 'column-step', text: String(i + 1) }),
-      ]))),
+        el('div', { class: 'scale-row scale-steps' }, data.histogram.map((n, i) =>
+          el('span', { class: 'column-step', text: String(i + 1) }))),
+      ]),
       el('div', { class: 'scale-ends' }, [
         el('span', { text: labels.min }),
         el('span', { text: labels.max }),
       ]),
-      el('p', { class: 'stage-meta', text: [
-        t('present.mean', { value: data.mean.toFixed(2) }),
-        t('present.median', { value: data.median }),
-        t('present.responses', { n: data.n }),
-      ].join(' · ') }),
     ]);
   }
 
   function cloudChart(data) {
     const max = data.items[0]?.count || 1;
-    return el('div', { class: 'cloud' }, data.items.map((item) => {
+    return el('div', { class: 'cloud' }, data.items.map((item, i) => {
       const weight = cloudWeight(item.count, max);
-      const size = (1 + weight * 2.6).toFixed(2);
+      // Weight rides with the count as well as size, so the busiest words read
+      // as heavier and not merely bigger.
       return el('span', {
         class: 'cloud-word',
-        style: { fontSize: size + 'rem', opacity: (0.55 + weight * 0.45).toFixed(2) },
-        title: String(item.count),
-        text: item.label,
-      });
+        style: {
+          fontSize: (1.1 + weight * 2.9).toFixed(2) + 'rem',
+          fontWeight: String(Math.round(500 + weight * 300)),
+          opacity: (0.6 + weight * 0.4).toFixed(2),
+        },
+        title: t('present.responses', { n: item.count }),
+      }, [
+        item.label,
+        // A number beside every word is noise. Beside the few that lead, it is
+        // the thing the room wants to know.
+        item.count > 1 && i < 3
+          ? el('span', { class: 'cloud-word-count', text: String(item.count) })
+          : null,
+      ]);
     }));
   }
 

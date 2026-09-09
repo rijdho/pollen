@@ -22,6 +22,31 @@ All notable changes to this project are documented here. The format follows
   dictionaries and the asset graph, plus a 56-check script that drives a running
   Worker end to end.
 
+### Fixed
+
+- The creation limit charged for attempts that never opened a room, so a run of
+  false starts could lock someone out having successfully created nothing. It is
+  now charged only on success, the ceiling is thirty an hour rather than ten, and
+  the refusal says how many minutes the wait is.
+- The button that opens a room stayed live while the request was in flight, so a
+  second click opened a second room.
+- The buttons that add a question sat above the list, out of sight of anyone who
+  had just finished typing one. They now sit below it, and each question card is
+  numbered.
+
+### Changed
+
+- Typography and tokens brought into line with `fair-repo-audit` and
+  `coara-action-planner`: headings at weight 800 with -0.02em tracking and
+  `text-wrap: balance`, 15px antialiased body text, eyebrows at .14em, and the
+  `--track` and `--shadow` tokens the family defines.
+- Every number on the projected screen uses tabular figures, so a percentage
+  going from 33 to 44 does not change the width of its row while the room
+  watches.
+- The three charts redrawn: lettered options with the leader picked out, a
+  histogram with the mean drawn where it falls, and a centred cloud whose words
+  carry weight as well as size.
+
 ### Notes
 
 Not released yet: no tag, no Zenodo record and therefore no DOI. The citation

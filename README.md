@@ -17,11 +17,11 @@ handing an audience to a commercial platform.
 Available in **English, German and Spanish** (auto-detected, switchable), with a light
 and a dark theme.
 
-![The projected screen during a multiple-choice question. The join address and the code
-VFYXTQ fill the left of the header, a QR code sits beside it, and the counter reads 12
-answering. Below, the question "Which of these worries you most?" with three bars: Cost
-33% with 4 votes, Time 25% with 3, and "Nobody reads it" 42% with
-5.](docs/presenter-choice.png)
+![The projected screen during a multiple-choice question. The join address and the room
+code fill the left of the header, a QR code sits beside it, and the counter reads 12
+answering. Below, the question "Which of these worries you most?" with three lettered
+bars: A Cost at 33% with 4 answers, B Time at 25% with 3, and C "Nobody reads it" at 42%
+with 5, the leader picked out in violet.](docs/presenter-choice.png)
 
 ## What it does
 
@@ -29,17 +29,23 @@ Three kinds of question, chosen when the room is created:
 
 - **Multiple choice.** Up to eight options, single or multiple selection. Bars with whole
   percentages that add up to exactly 100.
-- **Rating scale.** Two to ten steps with labels at each end. Histogram, mean and median.
-- **Word cloud.** One to three short entries per person, merged by spelling, sized by how
-  often they were said.
+- **Rating scale.** Two to ten steps with labels at each end. Histogram with the mean
+  drawn where it actually falls, plus the median and the number of answers.
+- **Word cloud.** One to three short entries per person, merged by spelling, sized and
+  weighted by how often they were said.
+
+![The projected screen during a rating scale. A large violet 3.9 labelled MEAN sits to the
+left, with "Median 4 · 12 answers" under it. To the right, five columns headed 0, 1, 2, 6
+and 3 answers, the tallest picked out in solid violet, and a black dashed line crossing it
+at 3.9.](docs/presenter-scale.png)
 
 The presenter moves the room from one question to the next, can stop and reopen answers,
 clear a question, download the results as JSON, or end the session and delete everything.
 
-![The projected screen during a word cloud. The words Access, Reuse, Transparency,
-Funding and Rigour are sized by how often each was said, and an amber panel below holds
-two entries, Trust and Slower, each with a Show and a Hide
-button.](docs/presenter-cloud.png)
+![The projected screen during a word cloud. The words Access, Reuse, Transparency, Funding
+and Rigour are centred and sized by how often each was said, with a small count beside the
+three commonest, and an amber panel below holds two entries waiting for approval, Trust and
+Slower, each with a Show and a Hide button.](docs/presenter-cloud.png)
 
 ### Free-text answers wait for approval
 

@@ -13,7 +13,10 @@ export function renderEditor(root, { onCreate, onBack }) {
   const message = el('p', { class: 'status', role: 'status', hidden: true });
 
   function add(type) {
-    if (questions.length >= LIMITS.room.maxQuestions) return;
+    if (questions.length >= LIMITS.room.maxQuestions) {
+      status(message, t('editor.full', { n: LIMITS.room.maxQuestions }), 'error');
+      return;
+    }
     if (type === 'choice') questions.push({ type, prompt: '', options: ['', ''], multiple: false });
     else if (type === 'scale') questions.push({ type, prompt: '', steps: 5, labels: { min: '', max: '' } });
     else questions.push({ type, prompt: '', entries: 1, moderation: true });
@@ -42,7 +45,7 @@ export function renderEditor(root, { onCreate, onBack }) {
 
     return el('section', { class: 'card q-card' }, [
       el('div', { class: 'q-head' }, [
-        el('span', { class: 'eyebrow', text: t('editor.add' + q.type[0].toUpperCase() + q.type.slice(1)) }),
+        el('span', { class: 'eyebrow', text: (i + 1) + '. ' + t('editor.add' + q.type[0].toUpperCase() + q.type.slice(1)) }),
         el('div', { class: 'q-tools' }, [
           el('button', { class: 'btn btn-quiet', type: 'button', text: '↑', title: t('editor.moveUp'), 'aria-label': t('editor.moveUp'), onClick: () => move(i, -1) }),
           el('button', { class: 'btn btn-quiet', type: 'button', text: '↓', title: t('editor.moveDown'), 'aria-label': t('editor.moveDown'), onClick: () => move(i, 1) }),
@@ -123,31 +126,51 @@ export function renderEditor(root, { onCreate, onBack }) {
     return el('label', { class: 'check' }, [input, el('span', { text: label })]);
   }
 
+  // Disabled while the request is in flight. Without that, a second click on a
+  // slow connection opens a second room and charges the creation limit twice
+  // for one intention.
+  const create = el('button', {
+    class: 'btn btn-brand btn-lg', type: 'button', text: t('editor.create'),
+    onClick: async () => {
+      const usable = questions.filter((q) => q.prompt.trim() !== '');
+      if (usable.length === 0) {
+        status(message, t('editor.empty'), 'error');
+        return;
+      }
+      create.disabled = true;
+      try {
+        await onCreate(usable, message);
+      } finally {
+        create.disabled = false;
+      }
+    },
+  });
+
   add('choice');
+
+  // The add buttons sit BELOW the list, where someone who has just finished
+  // typing a question is already looking. Above the list they were a row you
+  // had to scroll back up to find, so the obvious next step read as if the
+  // only options were to go back or to open the room.
+  const addRow = el('div', { class: 'add-row' }, [
+    el('span', { class: 'eyebrow', text: t('editor.addAnother') }),
+    el('div', { class: 'actions' }, [
+      el('button', { class: 'btn', type: 'button', text: '+ ' + t('editor.addChoice'), onClick: () => add('choice') }),
+      el('button', { class: 'btn', type: 'button', text: '+ ' + t('editor.addScale'), onClick: () => add('scale') }),
+      el('button', { class: 'btn', type: 'button', text: '+ ' + t('editor.addCloud'), onClick: () => add('cloud') }),
+    ]),
+  ]);
 
   root.append(
     el('section', { class: 'card card-lead' }, [
       el('h2', { class: 'card-title', text: t('editor.title') }),
-      el('div', { class: 'actions' }, [
-        el('button', { class: 'btn', type: 'button', text: '+ ' + t('editor.addChoice'), onClick: () => add('choice') }),
-        el('button', { class: 'btn', type: 'button', text: '+ ' + t('editor.addScale'), onClick: () => add('scale') }),
-        el('button', { class: 'btn', type: 'button', text: '+ ' + t('editor.addCloud'), onClick: () => add('cloud') }),
-      ]),
+      el('p', { class: 'hint', text: t('editor.hint') }),
     ]),
     list,
+    addRow,
     el('div', { class: 'actions actions-end' }, [
       el('button', { class: 'btn btn-quiet', type: 'button', text: t('editor.back'), onClick: onBack }),
-      el('button', {
-        class: 'btn btn-brand btn-lg', type: 'button', text: t('editor.create'),
-        onClick: () => {
-          const usable = questions.filter((q) => q.prompt.trim() !== '');
-          if (usable.length === 0) {
-            status(message, t('editor.empty'), 'error');
-            return;
-          }
-          onCreate(usable, message);
-        },
-      }),
+      create,
     ]),
     message,
   );

@@ -89,7 +89,7 @@ async function createRoom(request, env) {
     return json({ error: 'no_questions' }, 400);
   }
 
-  const allowed = await underThrottle(request, env);
+  const allowed = await throttle(request, env, 'check');
   if (!allowed.ok) {
     return json({ error: 'too_many_rooms', retryAfter: allowed.retryAfter }, 429);
   }
@@ -107,17 +107,22 @@ async function createRoom(request, env) {
     // Only a taken code is worth another try. Anything else is the caller's
     // answer, including 422 for questions that cannot be used.
     if (res.status === 409) continue;
+    // Charged only now, for a room that exists. A collision or a rejected set
+    // of questions costs the caller nothing.
+    if (res.ok) await throttle(request, env, 'spend');
     return withHeaders(res);
   }
   return json({ error: 'no_code' }, 503);
 }
 
-async function underThrottle(request, env) {
+async function throttle(request, env, op) {
   const address = request.headers.get('cf-connecting-ip') || '';
   if (address === '') return { ok: true };
+  // The address is never stored: the object's name is a truncated hash of it,
+  // and the object holds a count and a timestamp.
   const name = 'ip:' + (await sha256Hex(address)).slice(0, 32);
   const stub = env.THROTTLE.get(env.THROTTLE.idFromName(name));
-  const res = await stub.fetch('https://throttle/');
+  const res = await stub.fetch(`https://throttle/?op=${op}`);
   return res.json();
 }
 

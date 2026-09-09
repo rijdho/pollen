@@ -74,7 +74,9 @@ function showEditor() {
         go('/p/' + room.code);
       } catch (err) {
         const code = err instanceof ApiError ? err.code : 'internal';
-        status(message, t('error.' + code), 'error');
+        // retryAfter comes back in seconds; nobody counts in seconds.
+        const minutes = Math.max(1, Math.ceil((err.data?.retryAfter || 0) / 60));
+        status(message, t('error.' + code, { minutes }), 'error');
       }
     },
   });
