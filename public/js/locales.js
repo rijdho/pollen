@@ -111,8 +111,7 @@ export const STRINGS = {
     'error.offline': 'No connection. Your answer was not sent.',
     'error.forbidden': 'This device is not the presenter for that room.',
 
-    'footer.by': 'Built by Ricardo Hartley',
-    'footer.source': 'Source',
+    'footer.by': 'by',
     'footer.privacy': 'No accounts, no cookies, no analytics.',
   },
 
@@ -219,8 +218,7 @@ export const STRINGS = {
     'error.offline': 'Keine Verbindung. Ihre Antwort wurde nicht gesendet.',
     'error.forbidden': 'Dieses Gerät ist nicht die vortragende Person dieses Raums.',
 
-    'footer.by': 'Erstellt von Ricardo Hartley',
-    'footer.source': 'Quellcode',
+    'footer.by': 'von',
     'footer.privacy': 'Keine Konten, keine Cookies, keine Analyse.',
   },
 
@@ -327,8 +325,7 @@ export const STRINGS = {
     'error.offline': 'Sin conexión. Su respuesta no se ha enviado.',
     'error.forbidden': 'Este dispositivo no es el que presenta esa sala.',
 
-    'footer.by': 'Hecho por Ricardo Hartley',
-    'footer.source': 'Codigo fuente',
+    'footer.by': 'por',
     'footer.privacy': 'Sin cuentas, sin cookies, sin analítica.',
   },
 };

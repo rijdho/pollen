@@ -102,6 +102,11 @@ test('the footer links out, which is a navigation and not a load', () => {
   const anchors = [...html.matchAll(/<a\b[^>]*\bhref="(https?:\/\/[^"]+)"/g)].map((m) => m[1]);
   assert.ok(anchors.some((href) => href.includes('gnu.org')), 'the licence is linked');
   assert.ok(anchors.some((href) => href.includes('github.com/rijdho/pollen')), 'the source is linked');
+  // Every tool in this family signs itself the same way and points at the same
+  // hub. life.rijdho.io has no DNS record; rijdho.github.io is the one that
+  // serves, and it is what the sibling repositories link to.
+  assert.ok(anchors.some((href) => href === 'https://rijdho.github.io'),
+    'the footer points at the author hub the rest of the family points at');
 });
 
 test('the policy names only what the application uses', () => {

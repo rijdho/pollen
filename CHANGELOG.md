@@ -50,6 +50,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- The footer now signs itself the way every other tool in the family does:
+  `by @rijdho · AGPL-3.0 · github`, with the author link pointing at
+  `rijdho.github.io`, and a test pins it. It previously read "Built by Ricardo
+  Hartley" with no link to the hub at all.
+
 - Typography and tokens brought into line with `fair-repo-audit` and
   `coara-action-planner`: headings at weight 800 with -0.02em tracking and
   `text-wrap: balance`, 15px antialiased body text, eyebrows at .14em, and the
