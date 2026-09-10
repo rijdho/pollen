@@ -99,6 +99,16 @@ All notable changes to this project are documented here. The format follows
   the refusal says how many minutes the wait is.
 - The button that opens a room stayed live while the request was in flight, so a
   second click opened a second room.
+- The home page printed a literal `null` between two cards on any device that
+  had not opened a room. Same `append()` trap as the controls bar below, third
+  time it has reached a screen, and the check added for the last one did not
+  catch it because it had been written for the two pages that happened to be
+  open. It now runs over every view, including the home page in both its states
+  and the editor, and putting the defect back turns exactly that one red.
+- The home page still said free-text answers are held for approval, which
+  stopped being true when word clouds started publishing straight to the screen.
+  It now says audience questions wait, which is what happens. The same paragraph
+  listed three question types when there are five.
 - The controls bar printed a literal `null` where the reveal button belongs on a
   question with no right answer. DOM `append()` stringifies its arguments, and
   this was the second time it reached a screen, so there is now an `appendAll()`
