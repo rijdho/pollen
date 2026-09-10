@@ -28,11 +28,28 @@ async function api(path, { method = 'GET', body, key, who } = {}) {
   return res.json();
 }
 
+// Every request either page makes, recorded from the first navigation, so a
+// self-hosted copy can be shown to talk only to itself. Reasoning that the
+// paths are relative is not the same as watching where they go.
+const requested = [];
+const sockets = [];
+
+// WebSocket handshakes do not arrive as page 'request' events, so they need the
+// devtools protocol. Without this the socket check was reading an empty list
+// and passing on nothing.
+async function watchSockets(target) {
+  const cdp = await target.createCDPSession();
+  await cdp.send('Network.enable');
+  cdp.on('Network.webSocketCreated', ({ url }) => sockets.push(url));
+}
+
 const browser = await puppeteer.launch({ headless: 'new' });
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 900 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e.message)));
+page.on('request', (r) => requested.push(r.url()));
+await watchSockets(page);
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 
 await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
@@ -171,6 +188,23 @@ await page.evaluate(async () => {
   [...document.querySelectorAll('.actions-end .btn')].pop().click();
   await new Promise((r) => setTimeout(r, 1200));
 });
+{
+  // The tool's own creation limit is thirty rooms an hour per address, and this
+  // suite opens four. Running it eight times in an hour exhausts it, and
+  // without this the run died on a TypeError twenty lines later that said
+  // nothing about why.
+  const opened = await page.evaluate(() => ({
+    path: location.pathname,
+    message: document.querySelector('.status')?.textContent || null,
+  }));
+  if (!/^\/p\//.test(opened.path)) {
+    console.log(`FAIL the room did not open :: ${JSON.stringify(opened)}`);
+    console.log('\nIf that message is about too many rooms, this is the creation');
+    console.log('throttle, not a defect. Wait for the window and run it again.');
+    await browser.close();
+    process.exit(1);
+  }
+}
 const room = await page.evaluate(() => ({
   path: location.pathname,
   code: document.querySelector('.join-code')?.textContent,
@@ -192,6 +226,8 @@ console.error('  -- opening the phone');
 const phone = await browser.newPage();
 await phone.setViewport({ width: 420, height: 900 });
 phone.on('pageerror', (e) => errors.push('phone: ' + String(e.message)));
+phone.on('request', (r) => requested.push(r.url()));
+await watchSockets(phone);
 await phone.goto(`${BASE}/${room.code}`, { waitUntil: 'domcontentloaded' });
 await phone.waitForSelector('.join-stage', { timeout: 8000 });
 const phoneState = await phone.evaluate(async () => {
@@ -442,6 +478,30 @@ console.log('');
   await api(`/api/rooms/${attacked.code}/admin`, {
     method: 'POST', key: attacked.adminKey, body: { action: 'close' },
   });
+}
+
+{
+  // The question a self-hoster actually has: does a clone end up using someone
+  // else's Worker? Everything above ran against this origin, so every request
+  // either page made should have stayed on it.
+  const origin = new URL(BASE).origin;
+  const elsewhere = [...new Set(requested)]
+    .filter((url) => url.startsWith('http'))
+    .filter((url) => new URL(url).origin !== origin);
+  // Confirmatory, and worth being honest about: it was not possible to make
+  // this go red by planting a defect, because three independent layers stop a
+  // cross-origin call before it happens. Every URL in the code is relative;
+  // connect-src 'self' forbids the connection; and the API sends no CORS
+  // headers, so even with the policy loosened the browser refuses the reply.
+  // Loosening the policy AND hardcoding the production host still only produced
+  // "no connection". This check watches a real session and confirms what those
+  // three already guarantee.
+  ok('a running copy talks only to the origin that served it', elsewhere.length === 0, elsewhere);
+  ok('and it made real requests, so this is not an empty check',
+    requested.filter((u) => u.includes('/api/')).length > 10, requested.length);
+  ok('including its WebSockets, which are the long-lived ones',
+    sockets.length > 0 && sockets.every((u) => new URL(u).host === new URL(BASE).host),
+    { opened: sockets.length, sample: sockets.slice(0, 2) });
 }
 
 // The recovery link: a second device, with nothing in its storage, claiming the

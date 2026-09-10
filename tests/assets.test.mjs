@@ -117,6 +117,11 @@ test('the policy names only what the application uses', () => {
   assert.doesNotMatch(policy, /unsafe-inline/, 'sizing goes through element.style, which CSP does not govern');
   assert.doesNotMatch(policy, /unsafe-eval/);
   assert.ok(!/\*/.test(policy), 'no wildcard sources');
+  // This is what actually stops a self-hosted copy talking to anybody else's
+  // deployment, including through a hardcoded URL somebody adds by mistake: the
+  // browser refuses the connection before the code gets a say.
+  assert.match(policy, /connect-src 'self';/,
+    "connect-src must be exactly 'self': anything wider lets a page reach another origin");
 });
 
 test('the fonts the stylesheet asks for are in the repository', () => {
