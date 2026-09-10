@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.4.1] - 2026-09-10
 
+Version DOI: [10.5281/zenodo.22691644](https://doi.org/10.5281/zenodo.22691644)
+
 ### Fixed
 
 - **Nothing a room can type pushes the page sideways any more.** One long word
