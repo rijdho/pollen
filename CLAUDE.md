@@ -263,7 +263,7 @@ CHANGELOG under their own release heading.
 4. **The scoreboard has no speed bonus.** Doing it honestly means timing arrival at the
    object, never trusting a time a phone reports.
 
-**Nothing is unreleased.** v1.2.0 is the last tag and everything on `main` is in it. When
+**Nothing is unreleased.** v1.3.0 is the last tag and everything on `main` is in it. When
 the next one is worth a DOI: the concept DOI never changes, and the version DOI replaces
 its predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
 version DOIs live in the CHANGELOG under their own release heading.

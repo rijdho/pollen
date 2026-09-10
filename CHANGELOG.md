@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - 2026-09-10
 
 ### Added
 
@@ -19,6 +19,11 @@ All notable changes to this project are documented here. The format follows
   a room a length is easier to compare than an angle. The donut and the dots use
   a ramp of the brand with the option letters rather than eight hues, because a
   colour legend is one more thing to read at fifteen metres.
+
+### Documentation
+
+- The committed screenshots were regenerated, because the presenter shots
+  predated both changes above and showed a screen the code no longer produces.
 
 ## [1.2.0] - 2026-09-10
 
