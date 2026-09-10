@@ -144,7 +144,11 @@ export function imageField(q) {
 
 export function checkbox(label, checked, onChange) {
   const input = el('input', { type: 'checkbox', checked, onChange: (event) => onChange(event.target.checked) });
-  return el('label', { class: 'check' }, [input, el('span', { text: label })]);
+  // No span when there are no words to put in it. An empty one is invisible but
+  // not free: `.check` is a flex row with a gap, so it was adding half a rem of
+  // dead space beside every option's tick box and pushing the fields out of
+  // line with everything below them.
+  return el('label', { class: 'check' }, [input, label ? el('span', { text: label }) : null]);
 }
 
 /** The part of the form that differs by type. */
@@ -194,7 +198,7 @@ function rankFields(q) {
     });
     if (q.options.length < LIMITS.choice.maxOptions) {
       box.append(el('button', {
-        class: 'btn btn-quiet', type: 'button', text: t('editor.addOption'),
+        class: 'btn btn-quiet opt-add', type: 'button', text: t('editor.addOption'),
         onClick: () => { q.options.push(''); redraw(); },
       }));
     }
@@ -243,7 +247,7 @@ function choiceFields(q) {
     });
     if (q.options.length < LIMITS.choice.maxOptions) {
       box.append(el('button', {
-        class: 'btn btn-quiet', type: 'button', text: t('editor.addOption'),
+        class: 'btn btn-quiet opt-add', type: 'button', text: t('editor.addOption'),
         onClick: () => { q.options.push(''); redraw(); },
       }));
     }

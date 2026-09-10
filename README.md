@@ -293,7 +293,7 @@ their browser's local storage and nowhere else.
 npm test          # 101 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
 npm run live      # 155 end-to-end checks against the running Worker
-npm run ui        # 69 checks driving the real pages in a real browser
+npm run ui        # 70 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
@@ -315,6 +315,11 @@ something it did not mean. A later check written as `A || B` with a `B` that was
 passed while proving nothing at all, and was hiding a real leak of the right answers to
 every phone in the room; it is now two separate assertions, and putting the leak back turns
 them red.
+
+A later check earned its keep immediately: nothing a room can type may push the page
+sideways, tested with the longest unbroken word each cap allows, on the projector at two
+widths and on a phone. It found nine places where one long word ran off the screen, all of
+them older than the check.
 
 Two things that went the same way while the picture support was written are worth recording,
 because both looked green. A browser check measured an `<img>` before it had decoded, read

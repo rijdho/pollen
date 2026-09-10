@@ -109,8 +109,8 @@ a { color: var(--brand); }
 /* Every number on a screen that updates while people watch. Without tabular
    figures a percentage going from 33 to 44 changes width, and the whole row
    twitches on the wall. */
-.bar-value, .column-count, .column-step, .meta-count, .stage-meta, .join-code,
-.code-input, .code-chip, .scale-reading, .cloud-word-count, .queue-count {
+.bar-value, .column-count, .column-step, .meta-count, .join-code,
+.code-input, .code-chip, .scale-reading {
   font-variant-numeric: tabular-nums;
 }
 
@@ -192,10 +192,15 @@ a { color: var(--brand); }
   padding: clamp(1rem, 3vw, 1.5rem);
   box-shadow: var(--shadow);
 }
-.card-title { font-size: 1.125rem; margin-bottom: .75rem; }
+/* Also the question, as a phone shows it. Harmless on the headings that are
+   this tool's own words, because overflow-wrap only acts on a word that will
+   not fit at all. */
+.card-title { font-size: 1.125rem; margin-bottom: .75rem; overflow-wrap: anywhere; }
 .lede { font-size: .95rem; color: var(--ink-2); max-width: 62ch; }
 .lede b { color: var(--ink); font-weight: 600; }
-.hint { color: var(--ink-2); font-size: .875rem; margin: .5rem 0 0; }
+/* Several hints interpolate what the presenter typed (a scale's two end
+   labels, for one), so this is not only about the tool's own words. */
+.hint { color: var(--ink-2); font-size: .875rem; margin: .5rem 0 0; overflow-wrap: anywhere; }
 
 .eyebrow {
   font-family: var(--mono); font-size: 11px; text-transform: uppercase;
@@ -291,8 +296,25 @@ a { color: var(--brand); }
 .q-type { flex: 0 0 auto; }
 .q-head .q-tools { margin-left: auto; }
 .q-tools { display: flex; gap: .25rem; }
-.q-body { margin-top: .5rem; }
-.opt-row { display: flex; gap: .5rem; align-items: center; }
+/* An option is three columns, declared once, rather than a flex row whose
+   first column is however wide a tick box happens to render. Everything under
+   the list then has a column to line up with: the "Add option" button below
+   the options was starting at the card's edge while the fields above it were
+   indented by the width of the tick box plus a gap, and the two read as
+   ragged because they were.
+   The lead column holds either a tick box (multiple choice) or a position
+   number (ranking), which is why it is a length here and not `auto`. */
+.q-body { margin-top: .5rem; --opt-lead: 1.6rem; }
+.opt-row {
+  display: grid; grid-template-columns: var(--opt-lead) minmax(0, 1fr) auto;
+  gap: .5rem; align-items: center; margin-top: .5rem;
+}
+/* Vertical rhythm belongs to the row, not to whatever sits inside it. These
+   two carried different margin-tops (12px and 8px), so the spacing between
+   options depended on which child happened to be taller. */
+.opt-row .check, .opt-row .input { margin-top: 0; }
+.opt-row .check { justify-content: center; }
+.opt-add { margin-left: calc(var(--opt-lead) + .5rem); margin-top: .5rem; }
 
 /* --- presenter ------------------------------------------------------------ */
 
@@ -317,7 +339,10 @@ a { color: var(--brand); }
 
 .stage { min-height: 40vh; display: flex; flex-direction: column; gap: 1rem; }
 .stage-step { font-family: var(--mono); font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin: 0; }
-.stage-prompt { font-size: clamp(1.5rem, 4vw, 2.75rem); }
+/* The question itself, up to 200 characters and not obliged to contain a
+   space. Every chart below it was taught to wrap before this was, which meant
+   the tally fitted while the question it belonged to ran off the wall. */
+.stage-prompt { font-size: clamp(1.5rem, 4vw, 2.75rem); overflow-wrap: anywhere; }
 .stage-idle { color: var(--ink-2); font-size: 1.25rem; }
 
 /* A question's picture on the projected screen. Capped by height rather than
@@ -329,13 +354,24 @@ a { color: var(--brand); }
   width: auto; margin: 0 auto;
   border-radius: var(--r-sm); border: 1px solid var(--hairline);
 }
-.stage-meta { font-family: var(--mono); font-size: .875rem; color: var(--ink-2); }
-.queue-count { font-family: var(--mono); font-size: .8rem; color: var(--ink-2); }
 
 /* Multiple choice. The letter is not decoration: it gives a room a way to say
    "B" out loud while the bars are on the wall. */
+/* Anything the room can put words into has to survive the longest thing it is
+   allowed to say. An option is capped at 80 characters and nothing requires
+   them to contain a space: one long compound, a hashtag or a URL is enough,
+   and a grid or flex item refuses by default to shrink below its content, so
+   an unbreakable word pushed the whole page sideways. Measured at 390px and at
+   1280px across all three charts, the phone and the ranking list: every one of
+   them scrolled horizontally, which on a projector is a bar running off the
+   wall.
+   Two halves, and both are needed. minmax(0, 1fr) lets the column shrink;
+   overflow-wrap lets the word itself break once it has to. Breaking beats
+   clipping here, because a label cut mid-word is unreadable at fifteen metres
+   while a wrapped one is merely longer. */
+
 .bars { display: flex; flex-direction: column; gap: clamp(.7rem, 1.6vw, 1.1rem); }
-.bar-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .75rem 1rem; }
+.bar-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem 1rem; }
 .bar-key {
   grid-row: span 2;
   font-family: var(--mono); font-weight: 600;
@@ -344,7 +380,7 @@ a { color: var(--brand); }
   border: 1px solid var(--hairline); border-radius: var(--r-sm);
   background: var(--surface-2);
 }
-.bar-name { font-size: clamp(1rem, 1.8vw, 1.35rem); font-weight: 500; }
+.bar-name { font-size: clamp(1rem, 1.8vw, 1.35rem); font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
 .bar-value { font-family: var(--mono); white-space: nowrap; text-align: right; line-height: 1.1; }
 .bar-pct { display: block; font-size: clamp(1.1rem, 2.2vw, 1.7rem); font-weight: 600; }
 .bar-count { display: block; font-size: .8rem; color: var(--ink-2); }
@@ -396,7 +432,11 @@ a { color: var(--brand); }
   font-family: var(--mono); font-size: .75rem; font-weight: 600;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.scale-ends { grid-column: 2; display: flex; justify-content: space-between; color: var(--ink-2); font-size: .875rem; margin-top: .35rem; }
+.scale-ends {
+  grid-column: 2; display: flex; justify-content: space-between; gap: 1rem;
+  color: var(--ink-2); font-size: .875rem; margin-top: .35rem;
+}
+.scale-ends > * { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 46rem) {
   .scale-chart { grid-template-columns: 1fr; }
   .scale-ends { grid-column: 1; }
@@ -434,12 +474,23 @@ a { color: var(--brand); }
   padding: .9rem 1rem; border-radius: var(--r-sm);
   border: 1px solid var(--hairline); background: var(--surface-2); color: var(--ink);
   cursor: pointer; min-height: 3rem;
+  /* A button does not wrap its label on its own, and the label here is up to
+     80 characters that nobody promised would contain a space. Without this the
+     option ran past the edge of the phone and took the page with it. */
+  white-space: normal; overflow-wrap: anywhere;
 }
 .choice[aria-pressed="true"], .step[aria-pressed="true"] {
   background: var(--brand); border-color: var(--brand); color: #fff;
 }
-.steps { display: flex; gap: .4rem; margin-top: .75rem; }
-.step { flex: 1 1 0; text-align: center; font-family: var(--mono); }
+/* Ten steps on a 390px phone leave 27px each. flex refuses by default to
+   shrink an item below its content, so the row grew instead and pushed the
+   page sideways; min-width lets it shrink, the narrower padding lets two
+   digits still fit, and wrapping is the fallback when even that runs out. */
+.steps { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; }
+.step {
+  flex: 1 1 2rem; min-width: 0; padding-left: .25rem; padding-right: .25rem;
+  text-align: center; font-family: var(--mono);
+}
 .input-word { font-size: 1.25rem; }
 .sent { font-size: 1.25rem; color: var(--brand); font-family: var(--disp); font-weight: 600; }
 
@@ -507,7 +558,7 @@ a { color: var(--brand); }
   padding: .7rem .8rem; border: 1px solid var(--hairline); border-radius: var(--r-sm);
   background: var(--surface-2);
 }
-.qa-text { flex: 1 1 auto; margin: 0; }
+.qa-text { flex: 1 1 auto; margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .qa-up { flex: 0 0 auto; font-variant-numeric: tabular-nums; min-height: 2.5rem; }
 .qa-own { flex: 0 0 auto; font-family: var(--mono); font-size: .75rem; color: var(--ink-2); white-space: nowrap; }
 
@@ -517,7 +568,7 @@ a { color: var(--brand); }
   font-family: var(--mono); font-variant-numeric: tabular-nums;
   color: var(--ink-2); flex: 0 0 auto; min-width: 3.5em;
 }
-.qa-board-text { flex: 1 1 auto; }
+.qa-board-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .qa-board-item.leading .qa-board-votes,
 .qa-board-item.leading .qa-board-text { color: var(--brand); font-weight: 600; }
 
@@ -537,9 +588,11 @@ a { color: var(--brand); }
 
 /* --- ranking -------------------------------------------------------------- */
 
+/* Sits in the option row's lead column, so it needs no width of its own: one
+   declaration decides where the fields start, for both question types. */
 .rank-num {
   font-family: var(--mono); font-size: .8125rem; font-variant-numeric: tabular-nums;
-  color: var(--ink-2); width: 1.6em; text-align: right; flex: 0 0 auto;
+  color: var(--ink-2); text-align: center;
 }
 .rank-list { list-style: none; margin: .75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
 .rank-item {
@@ -547,19 +600,19 @@ a { color: var(--brand); }
   padding: .7rem .8rem; border: 1px solid var(--hairline); border-radius: var(--r-sm);
   background: var(--surface-2); min-height: 3rem;
 }
-.rank-label { flex: 1 1 auto; }
+.rank-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .rank-tools { display: flex; gap: .25rem; flex: 0 0 auto; }
 
 .rank-board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .8rem; }
 .rank-board-item {
-  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .4rem .9rem;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .4rem .9rem;
   font-size: clamp(1rem, 1.8vw, 1.35rem);
 }
 .rank-board-pos {
   font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums;
   color: var(--ink-2); width: 1.6em; text-align: right; grid-row: span 2;
 }
-.rank-board-label { font-weight: 500; }
+.rank-board-label { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
 .rank-board-avg { font-family: var(--mono); font-size: .8125rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .rank-board-track {
   grid-column: 2 / -1; height: clamp(.4rem, 1vw, .7rem);
@@ -647,9 +700,10 @@ body[data-presenting="true"][data-idle="true"] .join-toggle {
 }
 .donut-key { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
 .donut-key-item {
-  display: grid; grid-template-columns: auto 1fr auto; gap: .75rem; align-items: center;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .75rem; align-items: center;
   font-size: clamp(1rem, 1.8vw, 1.35rem); color: var(--ink);
 }
+.donut-key-label { min-width: 0; overflow-wrap: anywhere; }
 .donut-swatch {
   font-family: var(--mono); font-size: .8125rem; font-weight: 600;
   width: 1.9em; height: 1.9em; display: grid; place-items: center;
@@ -664,8 +718,8 @@ body[data-presenting="true"][data-idle="true"] .join-toggle {
   display: flex; flex-direction: column; gap: clamp(.7rem, 1.6vw, 1.1rem);
   color: var(--brand); max-width: 52rem;
 }
-.dots-row { display: grid; grid-template-columns: auto 1fr auto; gap: .4rem .9rem; align-items: center; }
-.dots-label { font-size: clamp(1rem, 1.8vw, 1.35rem); font-weight: 500; color: var(--ink); }
+.dots-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .4rem .9rem; align-items: center; }
+.dots-label { font-size: clamp(1rem, 1.8vw, 1.35rem); font-weight: 500; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .dots-value {
   font-family: var(--mono); color: var(--ink-2);
   font-variant-numeric: tabular-nums; white-space: nowrap;

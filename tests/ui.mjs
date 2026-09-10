@@ -16,13 +16,34 @@
 import puppeteer from 'puppeteer';
 import { statSync, rmSync } from 'node:fs';
 import { makePhotoPng, makeNoisePng } from './pngfixture.mjs';
+import { LIMITS } from '../public/js/shared/limits.js?v=2';
+
+// Taken from the caps rather than written out, so the check keeps testing the
+// longest thing the tool actually accepts if a cap ever moves.
+const LIMITS_PROMPT = LIMITS.prompt.maxChars;
+const LIMITS_OPTION = LIMITS.choice.maxOptionChars;
+const LIMITS_QA = LIMITS.qa.maxChars;
 
 const BASE = process.env.POLLEN_BASE || 'http://127.0.0.1:8788';
 const out = [];
 const ok = (label, cond, detail) => (console.log(`${cond ? 'ok  ' : 'FAIL'} ${label}${cond ? '' : ' :: ' + JSON.stringify(detail)}`), out.push(`${cond ? 'ok  ' : 'FAIL'} ${label}${cond ? '' : ' :: ' + JSON.stringify(detail)}`));
 
+// Every run gets its own client address, from the documentation range, exactly
+// as tests/live.mjs does and for the same reason: the creation throttle is real
+// storage with a one-hour window, and wrangler dev labels every request with
+// the same loopback address. Without this the suite quietly becomes unrunnable
+// after thirty rooms in an hour, which is three or four runs, and reports it as
+// a page that never loaded rather than as a 429.
+//
+// Local only. Cloudflare's edge refuses a request that carries its own
+// cf-connecting-ip outright, which is also what stops the throttle being dodged
+// by spoofing one in production.
+const LOCAL = BASE.includes('127.0.0.1') || BASE.includes('localhost');
+const RUN_ADDRESS = `2001:db8:${Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0')}:${Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0')}::1`;
+const RUN_HEADERS = LOCAL ? { 'cf-connecting-ip': RUN_ADDRESS } : {};
+
 async function api(path, { method = 'GET', body, key, who } = {}) {
-  const headers = {};
+  const headers = { ...RUN_HEADERS };
   if (body) headers['content-type'] = 'application/json';
   if (key) headers['x-pollen-key'] = key;
   if (who) headers['x-pollen-voter'] = who;
@@ -47,7 +68,15 @@ async function watchSockets(target) {
 }
 
 const browser = await puppeteer.launch({ headless: 'new' });
-const page = await browser.newPage();
+
+/** Every page opened here carries the run's address, for the reason above. */
+async function newPage(context = browser) {
+  const pg = await context.newPage();
+  if (LOCAL) await pg.setExtraHTTPHeaders(RUN_HEADERS);
+  return pg;
+}
+
+const page = await newPage();
 await page.setViewport({ width: 1280, height: 900 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e.message)));
@@ -226,7 +255,7 @@ await page.evaluate(async () => {
 });
 
 console.error('  -- opening the phone');
-const phone = await browser.newPage();
+const phone = await newPage();
 await phone.setViewport({ width: 420, height: 900 });
 phone.on('pageerror', (e) => errors.push('phone: ' + String(e.message)));
 phone.on('request', (r) => requested.push(r.url()));
@@ -495,7 +524,7 @@ await noStrayNothing('the phone', phone);
 {
   // A device that has never opened a room and has saved nothing, which is the
   // state the home page got wrong.
-  const visitor = await fresh.newPage();
+  const visitor = await newPage(fresh);
   await visitor.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await visitor.waitForSelector('.card-lead .btn-brand', { timeout: 8000 });
   await noStrayNothing('the home page, on a device with nothing saved', visitor);
@@ -508,7 +537,7 @@ await noStrayNothing('the phone', phone);
   // branch of the same conditional.
   await noStrayNothing('the home page, on a device that has opened a room',
     await (async () => {
-      const returning = await browser.newPage();
+      const returning = await newPage();
       await returning.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
       await returning.waitForSelector('.card-lead .btn-brand', { timeout: 8000 });
       return returning;
@@ -535,7 +564,7 @@ console.log('');
     method: 'POST', who: 'payload00000', body: { idx: 0, value: PAYLOAD.slice(0, 30) },
   });
 
-  const victim = await browser.newPage();
+  const victim = await newPage();
   const victimErrors = [];
   victim.on('pageerror', (e) => victimErrors.push(String(e.message)));
   await victim.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
@@ -564,7 +593,7 @@ console.log('');
     result.cloudWords.length === 1 && result.cloudWords[0].includes('<img'), result.cloudWords);
   ok('and the page raised no error doing it', victimErrors.length === 0, victimErrors);
 
-  const phoneVictim = await browser.newPage();
+  const phoneVictim = await newPage();
   await phoneVictim.goto(`${BASE}/${attacked.code}`, { waitUntil: 'domcontentloaded' });
   await phoneVictim.waitForSelector('.join-stage', { timeout: 8000 });
   const onPhone = await phoneVictim.evaluate(async (payload) => {
@@ -612,7 +641,7 @@ console.log('');
 // The recovery link: a second device, with nothing in its storage, claiming the
 // room from the fragment alone.
 console.log('');
-const second = await browser.newPage();
+const second = await newPage();
 await second.goto(`${BASE}/p/${room.code}#k=${encodeURIComponent(room.key)}`, { waitUntil: 'domcontentloaded' });
 await second.waitForSelector('.join-code, .status', { timeout: 8000 });
 const recovered = await second.evaluate(async () => {
@@ -634,7 +663,7 @@ ok('the key is claimed and taken out of the address bar',
 // storage and would already be holding the key claimed above. That mistake
 // made this check pass while proving nothing.
 const strangerContext = await browser.createBrowserContext();
-const stranger = await strangerContext.newPage();
+const stranger = await newPage(strangerContext);
 await stranger.goto(`${BASE}/p/${room.code}`, { waitUntil: 'domcontentloaded' });
 await stranger.waitForSelector('.status, .join-code', { timeout: 8000 });
 const refused = await stranger.evaluate(async () => {
@@ -649,7 +678,7 @@ await strangerContext.close();
 // because it needs a canvas. Node cannot see it, so if this block goes it goes
 // untested wholesale.
 {
-  const shot = await browser.newPage();
+  const shot = await newPage();
   const shotErrors = [];
   shot.on('pageerror', (e) => shotErrors.push(String(e.message)));
   await shot.setViewport({ width: 1280, height: 900 });
@@ -694,7 +723,7 @@ await strangerContext.close();
   {
     const impossible = new URL('../.tmp-ui-noise.png', import.meta.url).pathname;
     makeNoisePng(impossible, 2400, 1600);
-    const solo = await browser.newPage();
+    const solo = await newPage();
     await solo.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
     await solo.waitForSelector('.card-lead .btn-brand', { timeout: 8000 });
     await solo.evaluate(() => document.querySelector('.card-lead .btn-brand').click());
@@ -753,7 +782,7 @@ await strangerContext.close();
 
   // The phone gets it inline, which is the half that costs no request.
   const phoneContext = await browser.createBrowserContext();
-  const phone = await phoneContext.newPage();
+  const phone = await newPage(phoneContext);
   await phone.setViewport({ width: 390, height: 780 });
   const phoneRequests = [];
   phone.on('request', (r) => phoneRequests.push(r.url()));
@@ -779,6 +808,110 @@ await strangerContext.close();
   await fetch(`${BASE}/api/rooms/${picCode}/admin`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-pollen-key': picKey },
+    body: JSON.stringify({ action: 'close' }),
+  });
+}
+
+// Nothing a room can type may push the page sideways. This started as a
+// throwaway probe after the "Add option" button was found out of line, and it
+// found nine separate places where one long unbroken word ran off the screen:
+// every chart's label, the ranking list, an audience question on the projected
+// board, the question itself in both views, a phone's answer buttons, a scale's
+// end labels and its row of steps. On a wall that is a bar running off the
+// edge; on a phone it is a page that scrolls sideways under a thumb.
+//
+// The measurement is scrollWidth against clientWidth, NOT the element's
+// rectangle. A first version compared rectangles and reported the page clean
+// while the question's text overflowed its own box by 2400 pixels, because the
+// box was the right width and only its contents were not.
+{
+  // German compounds are the honest case: real words, no spaces, and the
+  // caps allow every length used here.
+  const long = (n) => 'Zusammenarbeitsvereinbarungsdurchfuehrungsverordnungsentwurfsbegruendung'.repeat(4).slice(0, n);
+  const prompt = long(LIMITS_PROMPT);
+  const option = long(LIMITS_OPTION);
+
+  const wide = await api('/api/rooms', {
+    method: 'POST',
+    body: {
+      locale: 'en',
+      questions: [
+        { type: 'choice', prompt, options: [option, 'short'], chart: 'bars' },
+        { type: 'choice', prompt, options: [option, 'short'], chart: 'donut' },
+        { type: 'choice', prompt, options: [option, 'short'], chart: 'dots' },
+        { type: 'scale', prompt, steps: 10, labels: { min: option, max: option } },
+        { type: 'rank', prompt, options: [option, 'b', 'c'] },
+        { type: 'qa', prompt, moderation: false },
+      ],
+    },
+  });
+  const names = ['bars', 'donut', 'dots', 'scale', 'rank', 'audience questions'];
+
+  // A vote only counts for the question the room is on, so each one is opened
+  // before it is answered rather than filling the room up front.
+  const answer = async (i) => {
+    await api(`/api/rooms/${wide.code}/admin`, { method: 'POST', key: wide.adminKey, body: { action: 'goto', payload: { idx: i } } });
+    if (i < 3) {
+      for (const pick of [0, 0, 1]) {
+        await api(`/api/rooms/${wide.code}/vote`, { method: 'POST', who: `wide-voter-${i}${pick}`, body: { idx: i, value: [pick] } });
+      }
+    } else if (names[i] === 'scale') {
+      for (const v of [2, 5, 9]) await api(`/api/rooms/${wide.code}/vote`, { method: 'POST', who: `wide-voter-${i}${v}`, body: { idx: i, value: v } });
+    } else if (names[i] === 'rank') {
+      await api(`/api/rooms/${wide.code}/vote`, { method: 'POST', who: `wide-voter-${i}`, body: { idx: i, value: [0, 1, 2] } });
+    } else {
+      await api(`/api/rooms/${wide.code}/vote`, { method: 'POST', who: `wide-voter-${i}`, body: { idx: i, value: long(LIMITS_QA) } });
+    }
+  };
+
+  const overflowing = () => {
+    const page = document.documentElement;
+    const bad = [...document.querySelectorAll('*')]
+      // SVG is measured by its own rules and sizes itself: the word cloud and
+      // the donut both draw <text> that reports a scrollWidth unrelated to any
+      // box, and reading it as overflow made the check cry wolf on two charts
+      // that render correctly.
+      .filter((e) => !(e instanceof SVGElement) && !e.closest('svg'))
+      // A deliberately zero-width element has no box to overflow. The mean
+      // marker on a histogram is one: a 0px absolutely-positioned rule whose
+      // label hangs off it by design, reported as overflow on every scale.
+      .filter((e) => e.clientWidth > 0)
+      .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === 'visible')
+      .map((e) => (typeof e.className === 'string' && e.className) || e.tagName);
+    return { page: page.scrollWidth, view: page.clientWidth, bad: [...new Set(bad)].slice(0, 4) };
+  };
+
+  // The page is LOADED at each width rather than resized into it. The bars and
+  // the word cloud size themselves in pixels through element.style at render
+  // time, so resizing without a redraw measures a layout computed for the old
+  // width: a first version did that and reported a 390px projector overflowing
+  // by 446 pixels, which was the check's own doing and not the stylesheet's.
+  // A projector arrives at its size; it does not get dragged narrower.
+  const wideContext = await browser.createBrowserContext();
+  const stage = await newPage(wideContext);
+  await stage.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await stage.evaluate((c, k) => localStorage.setItem('pollen.rooms', JSON.stringify([{ code: c, adminKey: k, expiresAt: Date.now() + 3600e3 }])), wide.code, wide.adminKey);
+
+  const spills = [];
+  for (const [where, path, width] of [['projector', `/p/${wide.code}`, 1280], ['projector', `/p/${wide.code}`, 390], ['phone', `/${wide.code}`, 390]]) {
+    const pg = where === 'phone' ? await newPage(await browser.createBrowserContext()) : stage;
+    await pg.setViewport({ width, height: 900 });
+    for (let i = 0; i < names.length; i += 1) {
+      await answer(i);
+      await pg.goto(BASE + path, { waitUntil: 'domcontentloaded' });
+      await pg.waitForSelector(where === 'phone' ? '.join-stage' : '.stage', { timeout: 15000 });
+      await new Promise((r) => setTimeout(r, 500));
+      const res = await pg.evaluate(overflowing);
+      if (res.page > res.view || res.bad.length) spills.push(`${names[i]} on the ${where} at ${width}px: ${res.page}>${res.view} ${res.bad.join(', ')}`);
+    }
+    if (where === 'phone') await pg.browserContext().close();
+  }
+  ok('nothing a room can type pushes the page sideways', spills.length === 0, spills);
+
+  await wideContext.close();
+  await fetch(`${BASE}/api/rooms/${wide.code}/admin`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-pollen-key': wide.adminKey },
     body: JSON.stringify({ action: 'close' }),
   });
 }

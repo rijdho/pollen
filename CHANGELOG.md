@@ -4,6 +4,40 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-09-10
+
+### Fixed
+
+- **Nothing a room can type pushes the page sideways any more.** One long word
+  with no spaces in it, which is what a German compound, a hashtag or a URL is,
+  ran off the screen in nine separate places: the label on all three charts, the
+  ranking list on the projector and on a phone, an audience question on the
+  projected board and in the presenter's own list, the question itself in both
+  views, a phone's answer buttons, a rating scale's two end labels and its row
+  of steps. On a wall that is a bar running off the edge of the projection; on a
+  phone it is a page that slides under a thumb. The cause was the same
+  everywhere: a grid or flex item will not shrink below its content unless told
+  to, and a word that cannot break will not break.
+- **The "Add option" button lines up with the options.** It sat at the card's
+  edge while the fields above it were indented by the width of a tick box, which
+  read as ragged because it was. An option row now declares its three columns
+  once and everything under the list lines up with them.
+- An empty `<span>` was being put beside every option's tick box, and `.check` is
+  a flex row with a gap, so each one carried half a rem of dead space.
+
+### Changed
+
+- The browser suite gives each run its own client address, as the end-to-end
+  suite already did. Without it the creation throttle counted every run against
+  one loopback address and the suite became unrunnable after about three runs in
+  an hour, reporting it as a page that never loaded rather than as a 429.
+
+### Removed
+
+- Three CSS classes that nothing referenced: `.stage-meta`, `.queue-count` and
+  `.cloud-word-count`. Checked one by one against every place a class name is
+  assembled at run time, which is where this kind of sweep usually goes wrong.
+
 ## [1.4.0] - 2026-09-10
 
 Version DOI: [10.5281/zenodo.22691118](https://doi.org/10.5281/zenodo.22691118)

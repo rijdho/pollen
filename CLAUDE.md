@@ -163,6 +163,33 @@ line: `lsof -ti :8789 -sTCP:LISTEN | xargs ps -o command=`. `server/index.mjs` t
 port from `PORT`, not from an argument, so `node server/index.mjs --port 8789` binds 8788
 and collides with wrangler.
 
+## Room-typed text and the width of a screen
+
+Every cap in `LIMITS` is a promise about the longest thing somebody can send, and none of
+them promises a space. A 200-character prompt, an 80-character option or a 240-character
+audience question can be one unbroken word: German compounds are the honest case, a hashtag
+or a URL the common one.
+
+A grid or flex item will not shrink below its content unless told to, so an unbreakable word
+pushes its container wider, and the page with it. On 2026-09-10 that was true in nine
+places at once and had been since each was written. The two halves of the fix always go
+together: `minmax(0, 1fr)` (or `min-width: 0`) lets the column shrink, and
+`overflow-wrap: anywhere` lets the word break once it has to. Breaking beats clipping, since
+a label cut mid-word is unreadable at fifteen metres while a wrapped one is merely taller.
+
+`tests/ui.mjs` pins it, and two things about how it measures are worth keeping:
+
+- **Compare `scrollWidth` with `clientWidth`, never the bounding rectangle.** The first
+  version compared rectangles and reported the page clean while the question's own text
+  overflowed its box by 2,400 pixels: the box was the right width and only its contents
+  were not.
+- **Load the page at each width; do not resize into it.** The bars and the cloud size
+  themselves in pixels through `element.style` at render time, so resizing without a redraw
+  measures a layout computed for the old width. A projector arrives at its size.
+- Skip anything inside an `<svg>` and anything with a `clientWidth` of zero. Both report a
+  `scrollWidth` that means something else: SVG sizes itself, and the histogram's mean marker
+  is a deliberate 0px rule whose label hangs off it.
+
 Three things that cost time when this was built, all in the seam rather than the logic:
 
 - **`stub.fetch()` takes a URL string on Cloudflare**, and the router uses that form for the
@@ -253,7 +280,7 @@ byte-identical to the working tree, compared by hash rather than by trusting a d
     npm run dev     wrangler on http://127.0.0.1:8788
     npm run serve   the same tool on Node, no Cloudflare
     npm run live    155 checks against a running server    (needs dev or serve)
-    npm run ui      69 checks driving the pages in a browser (needs a server + Chrome)
+    npm run ui      70 checks driving the pages in a browser (needs a server + Chrome)
 
 `npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
 `npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first
@@ -295,7 +322,7 @@ CHANGELOG under their own release heading.
    floor is quality 0.5 in `imagefile.js`; below that text stops being readable, so an
    image that will not fit is refused with a named cause instead.
 
-**Nothing is unreleased.** v1.4.0 is the last tag and everything on `main` is in it. When
+**Nothing is unreleased.** v1.4.1 is the last tag and everything on `main` is in it. When
 the next one is worth a DOI: the concept DOI never changes, and the version DOI replaces
 its predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
 version DOIs live in the CHANGELOG under their own release heading.
