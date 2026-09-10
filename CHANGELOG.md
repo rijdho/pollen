@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.4.0] - 2026-09-10
 
+Version DOI: [10.5281/zenodo.22691118](https://doi.org/10.5281/zenodo.22691118)
+
 ### Added
 
 - **A question can carry a picture**, on any of the five types: a figure to choose between,
