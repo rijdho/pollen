@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { STRINGS, LOCALES, LOCALE_NAMES } from '../public/js/locales.js?v=1';
+import { STRINGS, LOCALES, LOCALE_NAMES } from '../public/js/locales.js?v=2';
 
 const BASE = 'en';
 const baseKeys = Object.keys(STRINGS[BASE]);
@@ -29,7 +29,7 @@ const CODE = SOURCES.map((f) => readFileSync(f, 'utf8')).join('\n');
 // Keys the application assembles at run time and therefore never writes down.
 // Anything matching these prefixes is exempt from the "is it used" check; the
 // prefixes themselves are pinned so the exemption cannot quietly widen.
-const ASSEMBLED = ['error.', 'editor.add', 'editor.chart_'];
+const ASSEMBLED = ['error.', 'editor.add', 'editor.chart_', 'editor.imageFailed_', 'editor.setFailed_'];
 
 test('every locale carries exactly the same keys', () => {
   for (const locale of LOCALES) {

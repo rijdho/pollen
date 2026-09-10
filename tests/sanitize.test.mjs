@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { sanitiseText, cloudKey, wordCount } from '../public/js/shared/sanitize.js?v=1';
+import { sanitiseText, cloudKey, wordCount } from '../public/js/shared/sanitize.js?v=2';
 
 const RLO = String.fromCodePoint(0x202e);
 const LRI = String.fromCodePoint(0x2066);

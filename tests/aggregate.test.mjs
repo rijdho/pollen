@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { percentages, tallyChoice, tallyScale, tallyCloud, tallyRank, cloudWeight } from '../public/js/shared/aggregate.js?v=1';
+import { percentages, tallyChoice, tallyScale, tallyCloud, tallyRank, cloudWeight } from '../public/js/shared/aggregate.js?v=2';
 
 test('percentages always sum to exactly 100', () => {
   // The case that makes naive rounding visible on a projector: three equal

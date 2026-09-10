@@ -233,6 +233,28 @@ a { color: var(--brand); }
 }
 .input-num { width: 6rem; }
 .field-label { display: block; font-size: .8125rem; color: var(--ink-2); margin-top: .75rem; }
+
+/* A file input styled like every other control in the family. The native
+   widget is chrome from the browser, in the browser's own grey, and it was the
+   one foreign-looking thing on the editor page. The input itself is clipped
+   rather than hidden, so it keeps its place in the tab order. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.file-btn { display: inline-flex; align-items: center; cursor: pointer; margin-top: .4rem; }
+.file-btn:focus-within { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* The picture field in the editor, and the picture as a phone shows it. */
+.q-image-has { display: flex; align-items: flex-start; gap: .75rem; margin-top: .4rem; }
+.q-image-thumb {
+  width: 132px; height: 88px; object-fit: cover; flex: 0 0 auto;
+  border-radius: var(--r-sm); border: 1px solid var(--hairline); background: var(--surface-2);
+}
+.q-image-shown {
+  display: block; max-width: 100%; max-height: 40vh; width: auto;
+  margin: .25rem 0 .5rem; border-radius: var(--r-sm); border: 1px solid var(--hairline);
+}
 .check { display: flex; align-items: center; gap: .5rem; margin-top: .75rem; font-size: .875rem; }
 
 .code-input {
@@ -297,6 +319,16 @@ a { color: var(--brand); }
 .stage-step { font-family: var(--mono); font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin: 0; }
 .stage-prompt { font-size: clamp(1.5rem, 4vw, 2.75rem); }
 .stage-idle { color: var(--ink-2); font-size: 1.25rem; }
+
+/* A question's picture on the projected screen. Capped by height rather than
+   width: the results are what the room is here to read, and a tall photograph
+   that pushed them below the fold would be the picture winning an argument it
+   should not be in. */
+.stage-image {
+  display: block; max-width: 100%; max-height: 34vh;
+  width: auto; margin: 0 auto;
+  border-radius: var(--r-sm); border: 1px solid var(--hairline);
+}
 .stage-meta { font-family: var(--mono); font-size: .875rem; color: var(--ink-2); }
 .queue-count { font-family: var(--mono); font-size: .8rem; color: var(--ink-2); }
 
@@ -582,6 +614,9 @@ body[data-presenting="true"] .stage-prompt { font-size: clamp(2rem, 5.5vw, 4rem)
 body[data-presenting="true"] .bar-name { font-size: clamp(1.2rem, 2.6vw, 2rem); }
 body[data-presenting="true"] .bar-pct { font-size: clamp(1.4rem, 3.2vw, 2.6rem); }
 body[data-presenting="true"] .cloud-svg { max-height: 62vh; }
+/* More of the screen is going spare in full screen, so the picture may take
+   some of it back. Still capped: the tally stays visible without scrolling. */
+body[data-presenting="true"] .stage-image { max-height: 42vh; }
 
 body[data-presenting="true"] .controls,
 body[data-presenting="true"] .join-toggle {

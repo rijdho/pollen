@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { sanitiseText, cloudKey } from '../public/js/shared/sanitize.js?v=1';
-import { normaliseCode } from '../public/js/shared/codes.js?v=1';
-import { parseDeckFile } from '../public/js/decks.js?v=1';
+import { sanitiseText, cloudKey } from '../public/js/shared/sanitize.js?v=2';
+import { normaliseCode } from '../public/js/shared/codes.js?v=2';
+import { parseDeckFile } from '../public/js/decks.js?v=2';
+import { readImage } from '../public/js/shared/image.js?v=2';
+import { LIMITS } from '../public/js/shared/limits.js?v=2';
 
 // Payloads that would run if any of this reached a page as markup rather than
 // as text. They are asserted to survive as inert characters, NOT to be escaped
@@ -103,8 +105,43 @@ test('nothing anywhere parses a string as markup or as code', () => {
 });
 
 test('el() refuses to be handed markup at all', async () => {
-  const { el } = await import('../public/js/ui.js?v=1');
+  const { el } = await import('../public/js/ui.js?v=2');
   assert.throws(() => el('div', { html: '<b>x</b>' }), /markup is never inserted/);
+});
+
+test('a question picture can only ever be served as one of three raster types', () => {
+  // The Worker sets the response content-type from readImage().mime and from
+  // nothing else, so this is the property that keeps a picture from becoming a
+  // document: whatever is thrown at it, the answer is a raster type or null.
+  const hostile = [
+    'data:text/html;base64,' + Buffer.from('<script>alert(1)</script>').toString('base64'),
+    'data:image/svg+xml;base64,' + Buffer.from('<svg onload=alert(1)>').toString('base64'),
+    'data:application/xhtml+xml;base64,QQ==',
+    'data:image/png;base64,QQ==;charset=utf-8',
+    'DATA:IMAGE/PNG;BASE64,QQ==',
+    'data:image/png;base64,QQ==#/../../etc',
+    ' data:image/png;base64,QQ==',
+    'data:image/png ;base64,QQ==',
+    'data:image/png;base64,QQ==\u0000',
+    ...XSS.map((p) => 'data:image/png;base64,' + Buffer.from(p).toString('base64') + '<'),
+  ];
+  for (const value of hostile) {
+    const image = readImage(value);
+    if (image !== null) {
+      assert.ok(LIMITS.image.types.includes(image.mime), value.slice(0, 48) + ' produced ' + image.mime);
+    }
+  }
+  // And the allowlist itself carries nothing that a browser treats as a
+  // document. Pinned so widening it later is a deliberate act.
+  assert.deepEqual(LIMITS.image.types, ['image/jpeg', 'image/png', 'image/webp']);
+});
+
+test('a picture is stored as the string that was checked, never the one supplied', () => {
+  // The check and the store have to see the same bytes. If readImage returned
+  // a boolean and the caller kept the original, anything the prefix regex
+  // tolerated but the payload check never saw would be stored unexamined.
+  const body = Buffer.alloc(64, 9).toString('base64');
+  assert.equal(readImage('data:image/png;base64,' + body).src, 'data:image/png;base64,' + body);
 });
 
 test('a room code cannot carry a path, a scheme or a lookalike', () => {

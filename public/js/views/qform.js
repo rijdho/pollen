@@ -3,9 +3,10 @@
 // one place is what stops the two from drifting into different rules about
 // what a question may contain.
 
-import { el, clear } from '../ui.js?v=1';
-import { t } from '../i18n.js?v=1';
-import { LIMITS } from '../shared/limits.js?v=1';
+import { el, clear, appendAll } from '../ui.js?v=2';
+import { t } from '../i18n.js?v=2';
+import { LIMITS } from '../shared/limits.js?v=2';
+import { imageFromFile } from '../imagefile.js?v=2';
 
 export const QUESTION_TYPES = ['choice', 'scale', 'rank', 'cloud', 'qa'];
 
@@ -28,6 +29,9 @@ export function blankQuestion(type) {
 export function retype(q, type) {
   const next = blankQuestion(type);
   next.prompt = q.prompt;
+  // The picture survives, for the same reason the prompt does: it belongs to
+  // what is being asked, not to how the answer is collected.
+  if (q.image) next.image = q.image;
   if ('seconds' in next && 'seconds' in q) next.seconds = q.seconds;
   if ('showResults' in next && 'showResults' in q) next.showResults = q.showResults;
   // Options carry between the two types that have them, which is the switch
@@ -67,6 +71,75 @@ export function promptField(q) {
     'aria-label': t('editor.prompt'),
     onInput: (event) => { q.prompt = event.target.value; },
   });
+}
+
+/**
+ * A picture for the question, shared by every type because it means the same
+ * thing on all of them. Optional, and absent by default: most questions do not
+ * want one, and an empty frame on a projector is worse than no frame.
+ *
+ * The file is rescaled and re-encoded here rather than checked and refused.
+ * See imagefile.js for why: someone attaching a photo off their phone should
+ * not have to go and find an image editor first.
+ */
+export function imageField(q) {
+  const box = el('div', { class: 'q-field q-image' });
+  const note = el('p', { class: 'hint', role: 'status' });
+
+  const alt = el('input', {
+    class: 'input', type: 'text', maxlength: String(LIMITS.image.maxAltChars),
+    value: q.image?.alt || '', placeholder: t('editor.imageAlt'),
+    'aria-label': t('editor.imageAlt'),
+    onInput: (event) => { if (q.image) q.image.alt = event.target.value; },
+  });
+
+  const picker = el('input', {
+    // Taken out of the visual flow rather than hidden, so it is still focusable
+    // and still reachable by a keyboard and by assistive technology: the label
+    // wrapping it below is what a mouse clicks. display:none would take it off
+    // the accessibility tree and out of the tab order along with the pixels.
+    class: 'visually-hidden', type: 'file', accept: LIMITS.image.types.join(','),
+    'aria-label': t('editor.image'),
+    onChange: async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      note.textContent = t('editor.imageWorking');
+      const made = await imageFromFile(file);
+      if (!made.ok) {
+        // Named causes, not one apology. "Too detailed" is a real answer the
+        // presenter can act on: crop it, or use fewer words on the slide.
+        note.textContent = t('editor.imageFailed_' + made.reason);
+        event.target.value = '';
+        return;
+      }
+      q.image = { src: made.src, alt: q.image?.alt || '' };
+      note.textContent = t('editor.imageReady', { kb: Math.round(made.bytes / 1024) });
+      draw();
+    },
+  });
+
+  function draw() {
+    clear(box);
+    appendAll(box, [
+      el('label', { class: 'field-label', text: t('editor.image') }),
+      q.image?.src
+        ? el('div', { class: 'q-image-has' }, [
+          el('img', { class: 'q-image-thumb', src: q.image.src, alt: q.image.alt || '' }),
+          el('button', {
+            class: 'btn btn-quiet', type: 'button', text: t('editor.imageRemove'),
+            onClick: () => { q.image = null; picker.value = ''; note.textContent = ''; draw(); },
+          }),
+        ])
+        : el('label', { class: 'btn file-btn' }, [picker, el('span', { text: t('editor.imagePick') })]),
+      q.image?.src ? alt : null,
+      q.image?.src ? el('p', { class: 'hint', text: t('editor.imageAltHint') }) : null,
+      note,
+      q.image?.src ? null : el('p', { class: 'hint', text: t('editor.imageHint', { kb: Math.round(LIMITS.image.maxBytes / 1024) }) }),
+    ]);
+  }
+
+  draw();
+  return box;
 }
 
 export function checkbox(label, checked, onChange) {

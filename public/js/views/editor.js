@@ -1,8 +1,8 @@
-import { el, clear, status, appendAll } from '../ui.js?v=1';
-import { t } from '../i18n.js?v=1';
-import { LIMITS } from '../shared/limits.js?v=1';
-import { QUESTION_TYPES, blankQuestion, retype, typeLabel, typePicker, promptField, typeFields } from './qform.js?v=1';
-import { saveDeck } from '../decks.js?v=1';
+import { el, clear, status, appendAll } from '../ui.js?v=2';
+import { t } from '../i18n.js?v=2';
+import { LIMITS } from '../shared/limits.js?v=2';
+import { QUESTION_TYPES, blankQuestion, retype, typeLabel, typePicker, promptField, imageField, typeFields } from './qform.js?v=2';
+import { saveDeck } from '../decks.js?v=2';
 
 /**
  * Building the question set. Everything lives in memory until the room is
@@ -61,6 +61,7 @@ export function renderEditor(root, { onCreate, onBack, deck = null }) {
         ]),
       ]),
       promptField(q),
+      imageField(q),
       typeFields(q),
     ]);
   }
@@ -122,9 +123,17 @@ export function renderEditor(root, { onCreate, onBack, deck = null }) {
               status(message, t('editor.empty'), 'error');
               return;
             }
-            const name = saveDeck(setName.value, ready);
-            setName.value = name;
-            status(message, t('editor.setSaved'), 'info');
+            // saveDeck reports rather than swallowing. A set with pictures in
+            // it is three orders of magnitude larger than one without, and the
+            // browser's storage quota is per origin: a save that quietly did
+            // nothing would be discovered next week, with the set gone.
+            const saved = saveDeck(setName.value, ready);
+            if (saved.status === 'saved') {
+              setName.value = saved.name;
+              status(message, t('editor.setSaved'), 'info');
+            } else {
+              status(message, t('editor.setFailed_' + saved.status), 'error');
+            }
           },
         }),
       ]),

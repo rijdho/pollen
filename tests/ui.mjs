@@ -14,6 +14,9 @@
 // therefore done over the API at the end.
 
 import puppeteer from 'puppeteer';
+import { statSync, rmSync } from 'node:fs';
+import { makePhotoPng, makeNoisePng } from './pngfixture.mjs';
+
 const BASE = process.env.POLLEN_BASE || 'http://127.0.0.1:8788';
 const out = [];
 const ok = (label, cond, detail) => (console.log(`${cond ? 'ok  ' : 'FAIL'} ${label}${cond ? '' : ' :: ' + JSON.stringify(detail)}`), out.push(`${cond ? 'ok  ' : 'FAIL'} ${label}${cond ? '' : ' :: ' + JSON.stringify(detail)}`));
@@ -640,6 +643,145 @@ const refused = await stranger.evaluate(async () => {
 });
 ok('and without it the presenter view is refused', refused.controls === 0, refused);
 await strangerContext.close();
+
+// The picture on a question, end to end through a real browser: this is the
+// only place the rescale-and-re-encode loop in imagefile.js can run at all,
+// because it needs a canvas. Node cannot see it, so if this block goes it goes
+// untested wholesale.
+{
+  const shot = await browser.newPage();
+  const shotErrors = [];
+  shot.on('pageerror', (e) => shotErrors.push(String(e.message)));
+  await shot.setViewport({ width: 1280, height: 900 });
+  await shot.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await shot.waitForSelector('.card-lead .btn-brand', { timeout: 8000 });
+  await shot.evaluate(() => document.querySelector('.card-lead .btn-brand').click());
+  await shot.waitForSelector('.q-card input[type=file]', { timeout: 8000 });
+  await shot.evaluate(() => {
+    const n = document.querySelector('.q-card input[type=text]');
+    n.value = 'Which of these two plots?';
+    n.dispatchEvent(new Event('input', { bubbles: true }));
+    const o = document.querySelectorAll('.q-card .opt-row input[type=text]');
+    o[0].value = 'left'; o[0].dispatchEvent(new Event('input', { bubbles: true }));
+    o[1].value = 'right'; o[1].dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  // A photograph-sized, noisy image: 2400x1600 is larger than the 1280 cap, so
+  // the rescale runs, and the noise stops the encoder reaching the size cap for
+  // free the way a flat colour would.
+  const picture = new URL('../.tmp-ui-picture.png', import.meta.url).pathname;
+  makePhotoPng(picture, 2400, 1600);
+  const before = statSync(picture).size;
+  const input = await shot.$('.q-card input[type=file]');
+  await input.uploadFile(picture);
+  await shot.waitForSelector('.q-image-thumb', { timeout: 15000 });
+
+  const shrunk = await shot.evaluate(() => ({
+    note: document.querySelector('.q-image .hint[role=status]')?.textContent || '',
+    src: document.querySelector('.q-image-thumb')?.getAttribute('src') || '',
+    hasAlt: !!document.querySelector('.q-image input[type=text]'),
+  }));
+  const kb = Number((shrunk.note.match(/(\d+)\s*KB/) || [])[1]);
+  ok('a photograph larger than the cap is accepted, not refused',
+    shrunk.src.startsWith('data:image/'), shrunk.src.slice(0, 40));
+  ok('and comes out under a hundred kilobytes', kb > 0 && kb <= 100, { kb, before });
+  ok('the browser did the shrinking, not the presenter', before > 400 * 1024, before);
+  ok('a description can be written once there is a picture', shrunk.hasAlt);
+
+  // The other branch, which a picture that fits can never reach: an image no
+  // quality setting will squeeze under the cap is refused, and the refusal
+  // names a cause the presenter can act on rather than apologising.
+  {
+    const impossible = new URL('../.tmp-ui-noise.png', import.meta.url).pathname;
+    makeNoisePng(impossible, 2400, 1600);
+    const solo = await browser.newPage();
+    await solo.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    await solo.waitForSelector('.card-lead .btn-brand', { timeout: 8000 });
+    await solo.evaluate(() => document.querySelector('.card-lead .btn-brand').click());
+    await solo.waitForSelector('.q-card input[type=file]', { timeout: 8000 });
+    await (await solo.$('.q-card input[type=file]')).uploadFile(impossible);
+    await solo.waitForFunction(
+      () => (document.querySelector('.q-image [role=status]')?.textContent || '').length > 20
+        && !document.querySelector('.q-image [role=status]').textContent.includes('…'),
+      { timeout: 20000 },
+    );
+    const refusal = await solo.evaluate(() => ({
+      note: document.querySelector('.q-image [role=status]')?.textContent || '',
+      thumb: !!document.querySelector('.q-image-thumb'),
+      cleared: document.querySelector('.q-card input[type=file]')?.value === '',
+    }));
+    ok('an image that cannot fit is refused rather than mangled', !refusal.thumb, refusal);
+    ok('and the refusal says what to do about it', /crop|recort|zuschneiden/i.test(refusal.note), refusal.note);
+    ok('the field is cleared so the same file can be tried again', refusal.cleared, refusal);
+    await solo.close();
+    rmSync(impossible, { force: true });
+  }
+
+  await shot.evaluate(() => {
+    const alt = document.querySelector('.q-image input[type=text]');
+    alt.value = 'Two scatter plots'; alt.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('.actions-end .btn-brand').click();
+  });
+  await shot.waitForSelector('.join-code', { timeout: 15000 });
+  const picCode = await shot.evaluate(() => document.querySelector('.join-code').textContent.trim());
+  const picKey = await shot.evaluate(() => JSON.parse(localStorage.getItem('pollen.rooms') || '[]').find((r) => r.code === document.querySelector('.join-code').textContent.trim())?.key || '');
+  // The controls appear when the presenter socket opens, not when the page
+  // renders. Clicking without waiting worked on a warm run and threw on a cold
+  // one, which is the definition of a flaky check rather than a passing one.
+  await shot.waitForSelector('.controls .btn-brand', { timeout: 15000 });
+  await shot.evaluate(() => document.querySelector('.controls .btn-brand').click());
+  await shot.waitForSelector('.stage-image', { timeout: 10000 });
+  // The element existing is not the picture arriving. Waiting only for the
+  // selector measured an <img> that had not decoded yet, which reported a
+  // width of zero, and the "at most 1280 across" check below passed on that
+  // zero: a green line proving nothing.
+  await shot.waitForFunction(
+    () => { const i = document.querySelector('.stage-image'); return i && i.complete && i.naturalWidth > 0; },
+    { timeout: 15000 },
+  );
+
+  const onStage = await shot.evaluate(() => {
+    const img = document.querySelector('.stage-image');
+    return { src: img.getAttribute('src'), alt: img.getAttribute('alt'), width: img.naturalWidth, complete: img.complete };
+  });
+  ok('the projected screen shows the picture', onStage.complete && onStage.width > 0, onStage);
+  ok('and fetches it rather than carrying it in the socket',
+    onStage.src.startsWith('/api/rooms/') && onStage.src.includes('/image?idx='), onStage.src);
+  ok('the description reaches the projected screen', onStage.alt === 'Two scatter plots', onStage.alt);
+  ok('the picture is at most 1280 across, as the cap says',
+    onStage.width > 0 && onStage.width <= 1280, onStage.width);
+
+  // The phone gets it inline, which is the half that costs no request.
+  const phoneContext = await browser.createBrowserContext();
+  const phone = await phoneContext.newPage();
+  await phone.setViewport({ width: 390, height: 780 });
+  const phoneRequests = [];
+  phone.on('request', (r) => phoneRequests.push(r.url()));
+  await phone.goto(`${BASE}/${picCode}`, { waitUntil: 'domcontentloaded' });
+  await phone.waitForSelector('.q-image-shown', { timeout: 10000 });
+  await phone.waitForFunction(
+    () => { const i = document.querySelector('.q-image-shown'); return i && i.complete && i.naturalWidth > 0; },
+    { timeout: 15000 },
+  );
+  const onPhone = await phone.evaluate(() => {
+    const img = document.querySelector('.q-image-shown');
+    return { src: img.getAttribute('src').slice(0, 24), alt: img.getAttribute('alt'), width: img.naturalWidth };
+  });
+  ok('a phone shows the picture too', onPhone.width > 0, onPhone);
+  ok('a phone gets it inline, at no request of its own',
+    onPhone.src.startsWith('data:image/') && !phoneRequests.some((u) => u.includes('/image?idx=')),
+    { src: onPhone.src, fetched: phoneRequests.filter((u) => u.includes('/image')) });
+  ok('the description reaches the phone', onPhone.alt === 'Two scatter plots', onPhone.alt);
+  ok('the picture page raised no errors', shotErrors.length === 0, shotErrors);
+
+  await phoneContext.close();
+  rmSync(picture, { force: true });
+  await fetch(`${BASE}/api/rooms/${picCode}/admin`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-pollen-key': picKey },
+    body: JSON.stringify({ action: 'close' }),
+  });
+}
 
 await browser.close();
 await fetch(`${BASE}/api/rooms/${room.code}/admin`, {

@@ -1,8 +1,8 @@
-import { el, clear, status, appendAll } from '../ui.js?v=1';
-import { t } from '../i18n.js?v=1';
-import { normaliseCode } from '../shared/codes.js?v=1';
-import { myRooms } from '../rooms.js?v=1';
-import { allDecks, deleteDeck, downloadDeck, parseDeckFile, saveDeck } from '../decks.js?v=1';
+import { el, clear, status, appendAll } from '../ui.js?v=2';
+import { t } from '../i18n.js?v=2';
+import { normaliseCode } from '../shared/codes.js?v=2';
+import { myRooms } from '../rooms.js?v=2';
+import { allDecks, deleteDeck, downloadDeck, parseDeckFile, saveDeck } from '../decks.js?v=2';
 
 export function renderHome(root, { onCreate, onJoin, onPresent, onOpenDeck, onRefresh }) {
   clear(root);
@@ -72,7 +72,12 @@ export function renderHome(root, { onCreate, onJoin, onPresent, onOpenDeck, onRe
           status(message, t('home.importFailed'), 'error');
           return;
         }
-        saveDeck(deck.name, deck.questions);
+        // An imported set opens whether or not it could be kept: the file the
+        // presenter just chose is in hand, and refusing to open it because the
+        // browser's store is full would be losing the wrong thing. Only the
+        // keeping is reported.
+        const saved = saveDeck(deck.name, deck.questions);
+        if (saved.status !== 'saved') status(message, t('editor.setFailed_' + saved.status), 'error');
         onOpenDeck(deck);
       },
     });

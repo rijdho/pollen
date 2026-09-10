@@ -1,9 +1,9 @@
-import { el, clear, status, appendAll } from '../ui.js?v=1';
-import { t } from '../i18n.js?v=1';
-import { api, liveSocket, ApiError } from '../api.js?v=1';
-import { LIMITS } from '../shared/limits.js?v=1';
-import { wordCount } from '../shared/sanitize.js?v=1';
-import { percentages } from '../shared/aggregate.js?v=1';
+import { el, clear, status, appendAll } from '../ui.js?v=2';
+import { t } from '../i18n.js?v=2';
+import { api, liveSocket, ApiError } from '../api.js?v=2';
+import { LIMITS } from '../shared/limits.js?v=2';
+import { wordCount } from '../shared/sanitize.js?v=2';
+import { percentages } from '../shared/aggregate.js?v=2';
 
 /**
  * The phone. It receives the current question over its socket, never the
@@ -98,10 +98,20 @@ export function renderJoin(root, { code }) {
       stage.append(el('p', { class: 'lede', text: t('join.waiting') }));
       return;
     }
-    stage.append(
+    appendAll(stage, [
       el('p', { class: 'eyebrow', text: t('join.of', { n: view.current + 1, total: view.total }) }),
       el('h2', { class: 'card-title', text: view.question.prompt }),
-    );
+      // Inline, unlike the projected screen. A phone is pushed the question
+      // only when the presenter moves, so the picture rides along at no extra
+      // request; the projector's socket carries the tally on every vote and
+      // cannot afford a passenger.
+      view.question.spec.image?.src
+        ? el('img', {
+          class: 'q-image-shown', src: view.question.spec.image.src,
+          alt: view.question.spec.image.alt || '',
+        })
+        : null,
+    ]);
     if (view.scored) stage.append(nickField());
     if (view.locked) {
       stage.append(el('p', { class: 'hint', text: t('join.locked') }));

@@ -1,11 +1,11 @@
-import { el, clear, status, appendAll } from '../ui.js?v=1';
-import { t, locale } from '../i18n.js?v=1';
-import { api, liveSocket, ApiError } from '../api.js?v=1';
-import { qrSvg } from '../qr.js?v=1';
-import { cloudWeight } from '../shared/aggregate.js?v=1';
-import { layoutCloud } from '../shared/cloudlayout.js?v=1';
-import { forget } from '../rooms.js?v=1';
-import { blankQuestion, retype, typeLabel, promptField, typeFields, QUESTION_TYPES } from './qform.js?v=1';
+import { el, clear, status, appendAll } from '../ui.js?v=2';
+import { t, locale } from '../i18n.js?v=2';
+import { api, liveSocket, imageUrl, ApiError } from '../api.js?v=2';
+import { qrSvg } from '../qr.js?v=2';
+import { cloudWeight } from '../shared/aggregate.js?v=2';
+import { layoutCloud } from '../shared/cloudlayout.js?v=2';
+import { forget } from '../rooms.js?v=2';
+import { blankQuestion, retype, typeLabel, promptField, imageField, typeFields, QUESTION_TYPES } from './qform.js?v=2';
 
 /**
  * The projected screen. It is the only view that sees results, and the only
@@ -186,6 +186,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
           onClick: () => { draft = retype(draft, type); redraw(); },
         }))),
         promptField(draft),
+        imageField(draft),
         typeFields(draft),
         el('button', {
           class: 'btn btn-brand btn-lg', type: 'button', text: t('present.addNow'),
@@ -246,11 +247,21 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       stage.append(el('p', { class: 'stage-idle', text: t('present.waiting') }));
       return;
     }
-    stage.append(
+    appendAll(stage, [
       el('p', { class: 'stage-step', text: t('join.of', { n: state.current + 1, total: state.total }) }),
       el('h2', { class: 'stage-prompt', text: state.question.prompt }),
+      // Fetched by URL, not carried in the socket. The presenter's socket
+      // pushes the tally on every vote, and a picture riding on it would be
+      // sent again with every answer in the room; here the browser fetches it
+      // once per question and caches it. See api.js -> imageUrl.
+      state.question.spec.image
+        ? el('img', {
+          class: 'stage-image', src: imageUrl(code, state.question.idx),
+          alt: state.question.spec.image.alt || '',
+        })
+        : null,
       results(state.question, state.results),
-    );
+    ]);
   }
 
   /** Only where something can be right. A scoreboard on a poll is nonsense. */

@@ -10,7 +10,8 @@
 // alt text, and a random seed would make the two drift apart.
 
 import puppeteer from 'puppeteer';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
+import { makePhotoPng } from '../tests/pngfixture.mjs';
 
 const BASE = process.env.POLLEN_BASE || 'http://127.0.0.1:8788';
 const OUT = 'docs';
@@ -56,13 +57,42 @@ async function api(path, { method = 'GET', body, key, who } = {}) {
   return res.json();
 }
 
-const { code, adminKey } = await api('/api/rooms', { method: 'POST', body: { questions: QUESTIONS, locale: 'en' } });
-console.log('room', code);
-
 const browser = await puppeteer.launch({
   headless: 'new',
   executablePath: process.env.CHROME_PATH || undefined,
 });
+
+// The picture is encoded by the real field in the real editor rather than
+// pasted in as a fixture, for the same reason these screenshots drive the real
+// application: a picture prepared some other way would not be the thing the
+// tool produces. A raw PNG cannot stand in either, because the cap is 100 KB
+// and PNG does not get a grainy photograph anywhere near it; the rescaling and
+// re-encoding in public/js/imagefile.js is exactly what makes it fit.
+const PICTURE_FILE = 'docs/.fixture-picture.png';
+makePhotoPng(PICTURE_FILE, 2400, 1600);
+const picture = await (async () => {
+  const page = await browser.newPage();
+  await page.goto(BASE + '/', { waitUntil: 'networkidle0' });
+  await page.click('.card-lead .btn-brand');
+  await page.waitForSelector('.q-card input[type=file]', { timeout: 8000 });
+  await (await page.$('.q-card input[type=file]')).uploadFile(PICTURE_FILE);
+  await page.waitForSelector('.q-image-thumb', { timeout: 20000 });
+  const src = await page.evaluate(() => document.querySelector('.q-image-thumb').getAttribute('src'));
+  await page.close();
+  return src;
+})();
+rmSync(PICTURE_FILE, { force: true });
+console.log('picture', Math.round((picture.length * 3) / 4 / 1024), 'KB');
+
+QUESTIONS.push({
+  type: 'choice',
+  prompt: 'Which of these two readings fits the data?',
+  options: ['The one on the left', 'The one on the right'],
+  image: { src: picture, alt: 'A false-colour plot with a bright round feature left of centre' },
+});
+
+const { code, adminKey } = await api('/api/rooms', { method: 'POST', body: { questions: QUESTIONS, locale: 'en' } });
+console.log('room', code);
 
 async function shot(page, name, size) {
   await page.setViewport({ ...size, deviceScaleFactor: 2 });
@@ -143,6 +173,19 @@ for (const [i, item] of listed.items.entries()) {
   }
 }
 await shot(presenter, 'presenter-qa', { width: 1280, height: 820 });
+
+// A question with a picture, which is the whole point of the feature and
+// invisible in every other shot. Nine votes, so the bars read 6 and 3.
+await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 4 } } });
+for (const [i, pick] of [[0], [0], [0], [0], [0], [0], [1], [1], [1]].entries()) {
+  await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(400 + i), body: { idx: 4, value: pick } });
+}
+await presenter.goto(`${BASE}/p/${code}`, { waitUntil: 'networkidle0' });
+await presenter.waitForFunction(
+  () => { const i = document.querySelector('.stage-image'); return i && i.complete && i.naturalWidth > 0; },
+  { timeout: 15000 },
+);
+await shot(presenter, 'presenter-image', { width: 1280, height: 1060 });
 
 await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'close' } });
 await browser.close();

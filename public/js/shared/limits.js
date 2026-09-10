@@ -19,6 +19,26 @@ export const LIMITS = {
   prompt: {
     maxChars: 200,
   },
+  image: {
+    // Bytes of the decoded image, which is what "100 KB" means to whoever
+    // picks the file. The data URI carrying it is a third larger again, and
+    // that inflated string is what the cap below is actually checked against.
+    //
+    // The browser reaches this number by rescaling and re-encoding, never by
+    // refusing the file: a tool that answers a 4 MB phone photo with "too
+    // big, resize it yourself" has handed its job back to the presenter.
+    maxBytes: 100 * 1024,
+    // Longest side before encoding. Enough for a projector, and small enough
+    // that 100 KB is reachable at a quality that does not smear text.
+    maxSide: 1280,
+    // Raster only. An SVG is a document, not a picture: it can carry script
+    // and external references, and while a browser does not run either inside
+    // an <img>, that guarantee is the browser's to withdraw and not ours to
+    // depend on. Nothing here needs vector, so nothing here accepts it.
+    types: ['image/jpeg', 'image/png', 'image/webp'],
+    // Words describing the picture, for whoever is not looking at the wall.
+    maxAltChars: 120,
+  },
   choice: {
     maxOptions: 8,
     maxOptionChars: 80,

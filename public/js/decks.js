@@ -5,10 +5,26 @@
 // Nothing here ever reaches the server. A set is only sent when a room is
 // opened from it, and then only as the questions themselves.
 
-import { LIMITS } from './shared/limits.js?v=1';
+import { LIMITS } from './shared/limits.js?v=2';
 
 const KEY = 'pollen.decks';
 const FORMAT = 'pollen.deck/1';
+
+// What this may occupy in the browser's store. The quota is per origin and
+// browsers put it at about five megabytes, so this leaves room for the rest of
+// what the tool keeps there.
+//
+// The number matters now in a way it never did before. A set of twenty text
+// questions is a few kilobytes; the same set with a picture on every question
+// is nearly three megabytes, because a hundred-kilobyte image is a third
+// larger again as base64. Two sets like that do not fit, and the browser's
+// answer to that is an exception thrown at the moment of writing.
+//
+// This used to be caught and dropped on the floor. The presenter saw "saved on
+// this device", closed the tab, and found the set gone the following week.
+// Nothing here is allowed to fail quietly any more: write() reports which of
+// the two things went wrong, and the editor says so.
+const MAX_STORED = 4 * 1024 * 1024;
 
 function read() {
   try {
@@ -20,20 +36,37 @@ function read() {
   }
 }
 
+/** @returns {'saved'|'full'|'off'} */
 function write(decks) {
-  try { localStorage.setItem(KEY, JSON.stringify(decks.slice(0, 30))); } catch { /* storage off */ }
+  const payload = JSON.stringify(decks.slice(0, 30));
+  // Checked before the write as well as after, because a browser is entitled
+  // to a smaller quota than the one this assumes and because failing on our
+  // own number gives a message that names a cause.
+  if (payload.length > MAX_STORED) return 'full';
+  try {
+    localStorage.setItem(KEY, payload);
+    return 'saved';
+  } catch (err) {
+    // Storage switched off (a private window, or blocked site data) is a
+    // different problem from a store that is full, and the remedy differs:
+    // one is "export the set to a file", the other is "this browser will not
+    // keep anything". Conflating them was half of why the old catch was
+    // useless.
+    const name = err?.name || '';
+    return name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' ? 'full' : 'off';
+  }
 }
 
 export function allDecks() {
   return read();
 }
 
+/** @returns {{status: 'saved'|'full'|'off', name: string}} */
 export function saveDeck(name, questions) {
   const clean = String(name || '').trim().slice(0, 60) || new Date().toISOString().slice(0, 10);
   const decks = read().filter((d) => d.name !== clean);
   decks.unshift({ name: clean, savedAt: Date.now(), questions });
-  write(decks);
-  return clean;
+  return { status: write(decks), name: clean };
 }
 
 export function deleteDeck(name) {

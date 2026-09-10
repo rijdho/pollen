@@ -52,9 +52,10 @@ disabled at the ends rather than doing nothing.
 
 ![The question editor. The first question is numbered 1 and carries a dropdown reading
 "Multiple choice", with an up arrow greyed out, a down arrow and a Remove button on the
-right. Below it the question "Which of these worries you most?", two options, and the
-settings for right answers, multiple answers, a countdown and showing the tally on
-phones.](docs/editor.png)
+right. Below it the question "Which of these worries you most?", a "Choose a picture" button
+with the note that a picture is scaled to stay under 100 KB, two options, and the settings
+for right answers, multiple answers, how the screen draws it, a countdown and showing the
+tally on phones.](docs/editor.png)
 
 Any multiple-choice question can be given a right answer, which turns it into a quiz: the
 presenter reveals the answer when they choose, and a scoreboard appears for whoever
@@ -109,6 +110,33 @@ fragment, which browsers never send to a server, so it stays out of request line
 edge logs and out of referrers; the page claims it, writes it to that device and strips it
 from the address bar. Anyone holding that link controls the room, and the button that
 copies it says so.
+
+### A picture on a question
+
+Any question can carry one, whichever of the five types it is: a figure to choose between,
+a photograph to rate, a diagram to name in three words. The presenter attaches it; the room
+does not. That is a deliberate limit rather than a missing feature, and the reasoning is in
+the caveats.
+
+The file is not checked and refused, it is **rescaled and re-encoded in the presenter's own
+browser** until it is under 100 KB. A four-megabyte photograph off a phone is a normal thing
+to attach, and answering it with "too large, resize it yourself" would hand the work back to
+the person the tool exists to help. It is scaled to at most 1280 pixels on its longest side
+and then re-encoded at falling quality until it fits, preferring WebP. Only an image that no
+quality setting will squeeze under the cap is refused, and the refusal says which case it is:
+that is a slide full of small text, where going lower would give back something illegible.
+
+Only JPEG, PNG and WebP are carried, and only as bytes. An SVG is refused because it is a
+document rather than a picture, and an address on somebody else's server is refused because
+every phone in the room would then fetch it, which is the one promise the front page makes.
+
+A description can be written alongside it, read out by a screen reader and shown if the
+picture does not load. It travels into the results download; the picture itself does not.
+
+![The projected screen during a multiple-choice question that carries a picture. Question 5
+of 5 reads "Which of these two readings fits the data?" above a false-colour plot with a
+bright round feature left of centre. Below it, option A, "The one on the left", stands at 67%
+on 6 answers and option B at 33% on 3.](docs/presenter-image.png)
 
 ### What the room types
 
@@ -183,6 +211,18 @@ a navigation request does not invoke the Worker at all, so someone typing the jo
 address is not a billed request. Durable Objects hibernate between votes, so a room that
 sits open through a two-hour session is not billed for the waiting.
 
+**A picture on a question does not change that table.** It is authored once by the
+presenter, not once per person, so it does not scale with the size of the room. Phones
+receive it inline with the question they are pushed when the presenter moves, at no request
+of their own. The projected screen fetches it over HTTP instead, once per question and then
+from its own cache: that screen holds the socket carrying the tally on every single vote, so
+nothing large may ride on it. Ten questions with pictures cost ten extra requests on one
+device.
+
+The same reasoning shapes the storage. Pictures live in a table of their own rather than
+inside the question, because the row holding a question is read on every vote; twenty
+pictures kept there would mean re-reading two megabytes each time one person taps an option.
+
 ### If you want it to store things somewhere else
 
 There is no database to swap out, and that is worth explaining rather than just asserting,
@@ -240,7 +280,8 @@ security policy.
 
 ### What is stored, and for how long
 
-Per room: the questions, one row per answer, and one row per device that has answered.
+Per room: the questions, any picture attached to one, one row per answer, and one row per
+device that has answered.
 The device row holds an opaque token the browser generated for itself, so that a second
 answer replaces the first rather than counting twice. No address, no fingerprint, no
 account, nothing that identifies a person. The presenter's key to their own room lives in
@@ -249,10 +290,10 @@ their browser's local storage and nowhere else.
 ## Tests
 
 ```bash
-npm test          # 83 unit tests, no dependencies, Node's own runner
+npm test          # 101 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
-npm run live      # 137 end-to-end checks against the running Worker
-npm run ui        # 54 checks driving the real pages in a real browser
+npm run live      # 155 end-to-end checks against the running Worker
+npm run ui        # 69 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
@@ -268,12 +309,21 @@ covers the wiring: that a set saves, that a room opens, that a phone is never ha
 right answer, that the scoreboard fills, and that a recovery link hands the room to a device
 that had nothing.
 
-The suite was checked against seventeen deliberately planted defects and killed all of
+The suite was checked against twenty-one deliberately planted defects and killed all of
 them, including one round of it that killed only sixteen and exposed a test asserting
 something it did not mean. A later check written as `A || B` with a `B` that was always true
 passed while proving nothing at all, and was hiding a real leak of the right answers to
 every phone in the room; it is now two separate assertions, and putting the leak back turns
 them red.
+
+Two things that went the same way while the picture support was written are worth recording,
+because both looked green. A browser check measured an `<img>` before it had decoded, read
+its width as zero, and passed an assertion that the picture is at most 1280 pixels across: a
+line proving nothing, now waiting for the image to load and requiring a width above zero as
+well. And a mutation run reported red for the right test through a broken one: the edit meant
+to loosen a regular expression had instead made the file unparseable, so the failure was a
+syntax error wearing the defect's clothes. It was redone properly and the defect was caught
+on its own terms.
 
 ## Run locally
 
@@ -396,6 +446,22 @@ glossed over.
 - **A scoreboard is not an exam.** Names are typed by whoever is holding the phone, one
   device can be handed to someone else, and the device caveat above applies in full. It is
   a game for a room, not an assessment.
+- **Only the presenter can attach a picture, and the room cannot.** That is the limit, not
+  an unfinished feature. A word-cloud entry that goes wrong is three words the presenter
+  reads past; a photograph from an anonymous phone, three metres wide in front of a room,
+  is not, and there is nobody to hold accountable for it because audience items carry a
+  position number rather than any device identifier, on purpose. Letting the room send
+  pictures would mean putting an approval queue in front of every one of them, which is
+  the queue that was deliberately removed from word clouds.
+- **A picture is re-encoded, so it is not the file you attached.** It is scaled to at most
+  1280 pixels and encoded lossily to fit 100 KB. That is right for a photograph or a chart
+  and wrong for anything where the pixels are the evidence: do not use it to show a scan
+  somebody is meant to read closely, or fine print.
+- **A saved set with pictures is large, and the browser's storage is not.** A set of twenty
+  text questions is a few kilobytes; the same set with a picture on each is nearly three
+  megabytes, against an origin quota of about five. The tool now says so when a set will not
+  fit instead of reporting a save that did not happen, but the remedy is yours: export sets
+  to files, which have no quota, and delete the ones you are not using.
 - **Moderation is a person, not a filter.** There is no profanity list and no
   classifier. What protects the projector is that someone reads each entry before it
   appears. Leave it on.

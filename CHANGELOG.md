@@ -4,6 +4,52 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A question can carry a picture**, on any of the five types: a figure to choose between,
+  a photograph to rate, a diagram to name in three words. The presenter attaches it and the
+  room does not, which is a limit rather than a missing half: an anonymous photograph three
+  metres wide has no moderation story and no accountable author, because audience items
+  carry a position number rather than a device token on purpose.
+- **The file is rescaled rather than refused.** A four-megabyte photograph off a phone is a
+  normal thing to attach, so the browser scales it to at most 1280 pixels and re-encodes it
+  at falling quality until it is under 100 KB, preferring WebP. Only an image no quality
+  setting will squeeze under the cap is turned away, and the message names that case rather
+  than apologising: a slide full of small text, where going lower gives back something
+  illegible.
+- **A description alongside the picture**, read out by a screen reader and shown if the
+  picture does not load. It travels into the results download; the picture does not.
+
+### Changed
+
+- **Saving a question set now reports failure instead of swallowing it.** `decks.js` caught
+  every storage error and dropped it, which was harmless while a set was a few kilobytes
+  and is not now: a set with a picture on each of twenty questions is nearly three megabytes
+  against a browser quota of about five. A presenter would have read "saved on this device",
+  closed the tab, and found the set gone the following week. A full store and a browser that
+  keeps nothing are now told apart, because the remedies differ.
+
+### Security
+
+- Only JPEG, PNG and WebP are carried, and only as bytes in a `data:` URI. An SVG is refused
+  because it is a document rather than a picture, and an address on another host is refused
+  because every phone in the room would then fetch it, which is the promise the front page
+  makes. The served response takes its type from that allowlist and never from the request,
+  with `nosniff` and a policy of its own, so a direct hit on the URL is a picture and cannot
+  become a document.
+
+### Performance
+
+- Pictures are stored in a table of their own rather than inside the question. The row
+  holding a question is read on every vote, so twenty pictures kept there would have meant
+  re-reading two megabytes of them each time one person tapped an option.
+- The projected screen fetches its picture over HTTP and caches it, rather than receiving it
+  on the socket that carries the tally: one request per question on one device, instead of a
+  hundred kilobytes per vote. Phones still receive it inline, at no request at all, because
+  their push happens only when the presenter moves.
+
 ## [1.3.0] - 2026-09-10
 
 Version DOI: [10.5281/zenodo.22690556](https://doi.org/10.5281/zenodo.22690556)

@@ -644,6 +644,99 @@ console.log('injection, forgery and malformed input');
   }
 }
 
+console.log('a question with a picture');
+{
+  // A real hundred-kilobyte payload, because the point of this block is the
+  // parts only a running server can answer: that a string this size survives
+  // the POST body, the SQLite column and the socket, and that the picture is
+  // NOT on the path that runs on every vote.
+  const bytes = (n) => 'data:image/webp;base64,' + Buffer.alloc(n, 11).toString('base64');
+  const big = bytes(100 * 1024);
+
+  const pic = await call('/api/rooms', {
+    method: 'POST', address: OTHER_ADDRESS,
+    body: {
+      locale: 'en',
+      questions: [
+        { type: 'choice', prompt: 'Which figure?', options: ['left', 'right'], image: { src: big, alt: 'Two plots side by side' } },
+        { type: 'scale', prompt: 'No picture here', steps: 5 },
+        { type: 'choice', prompt: 'Refused picture', options: ['a', 'b'], image: { src: bytes(100 * 1024 + 1), alt: '' } },
+        { type: 'choice', prompt: 'Refused type', options: ['a', 'b'], image: { src: 'data:image/svg+xml;base64,' + Buffer.from('<svg onload=alert(1)>').toString('base64'), alt: '' } },
+        { type: 'choice', prompt: 'Refused host', options: ['a', 'b'], image: { src: 'https://example.org/cat.png', alt: '' } },
+      ],
+    },
+  });
+  check('a room with a picture is created', pic.status === 200, pic);
+  const pcode = pic.data.code;
+  const pkey = pic.data.adminKey;
+
+  const pstate = (await call(`/api/rooms/${pcode}/state`, { key: pkey })).data;
+  check('every question survived, picture or not', pstate.total === 5, pstate.total);
+
+  // The three refusals: the question is kept, the picture is dropped. Refusing
+  // the whole question would lose the presenter's words over a file.
+  const specs = [];
+  for (let i = 0; i < 5; i += 1) {
+    await call(`/api/rooms/${pcode}/admin`, { method: 'POST', key: pkey, body: { action: 'goto', payload: { idx: i } } });
+    specs.push((await call(`/api/rooms/${pcode}`, { voter: who('pic-voter') })).data.question);
+  }
+  check('the picture reaches a phone inline, with its description',
+    specs[0].spec.image?.src === big && specs[0].spec.image.alt === 'Two plots side by side',
+    { alt: specs[0].spec.image?.alt, len: specs[0].spec.image?.src?.length });
+  check('a question with no picture carries none', specs[1].spec.image === undefined, specs[1].spec);
+  check('a picture over the cap is dropped and the question kept',
+    specs[2].spec.image === undefined && specs[2].prompt === 'Refused picture', specs[2]);
+  check('an SVG is dropped and the question kept',
+    specs[3].spec.image === undefined && specs[3].prompt === 'Refused type', specs[3]);
+  check('a picture on somebody else\'s host is dropped',
+    specs[4].spec.image === undefined && specs[4].prompt === 'Refused host', specs[4]);
+
+  // Served as an image, from this origin, with a type from the allowlist.
+  const shot = await fetch(`${BASE}/api/rooms/${pcode}/image?idx=0`, { headers: { 'cf-connecting-ip': OTHER_ADDRESS } });
+  const body = new Uint8Array(await shot.arrayBuffer());
+  check('the picture is served as an image', shot.status === 200 && shot.headers.get('content-type') === 'image/webp',
+    { status: shot.status, type: shot.headers.get('content-type') });
+  check('and as the bytes that went in, not base64 of them', body.length === 100 * 1024 && body[0] === 11, body.length);
+  check('it is cached rather than re-fetched per question',
+    /max-age=\d+/.test(shot.headers.get('cache-control') || ''), shot.headers.get('cache-control'));
+  check('it cannot be sniffed into a document',
+    shot.headers.get('x-content-type-options') === 'nosniff'
+    && (shot.headers.get('content-security-policy') || '').includes("default-src 'none'"),
+    { nosniff: shot.headers.get('x-content-type-options'), csp: shot.headers.get('content-security-policy') });
+  check('a question with no picture has no image to serve',
+    (await fetch(`${BASE}/api/rooms/${pcode}/image?idx=1`, { headers: { 'cf-connecting-ip': OTHER_ADDRESS } })).status === 404);
+  check('an index outside the room is a 404',
+    (await fetch(`${BASE}/api/rooms/${pcode}/image?idx=99`, { headers: { 'cf-connecting-ip': OTHER_ADDRESS } })).status === 404);
+
+  // The cost model, which is the reason the picture is stored apart from the
+  // question. The presenter's socket is pushed on every single vote; if the
+  // picture rode on it, a room of two hundred would send it two hundred times.
+  await call(`/api/rooms/${pcode}/admin`, { method: 'POST', key: pkey, body: { action: 'goto', payload: { idx: 0 } } });
+  const psock = socket(`/api/rooms/${pcode}/live?k=${encodeURIComponent(pkey)}`);
+  await psock.open();
+  const opening = await psock.next();
+  check('the presenter socket never carries the picture itself',
+    !JSON.stringify(opening).includes(big.slice(0, 512)),
+    { bytes: JSON.stringify(opening).length });
+  check('but it is told there is one to fetch', opening.state.question.spec.image?.alt === 'Two plots side by side',
+    opening.state.question.spec.image);
+
+  await call(`/api/rooms/${pcode}/vote`, { method: 'POST', voter: who('pic-voter'), body: { idx: 0, value: [0] } });
+  const onVote = await psock.next();
+  check('a vote pushes a tally, not a picture', JSON.stringify(onVote).length < 4096, JSON.stringify(onVote).length);
+
+  // And the export: the description travels, the bytes do not. A results file
+  // that carried every picture would be megabytes of what is already on the
+  // presenter's own slides.
+  const dump = (await call(`/api/rooms/${pcode}/export`, { key: pkey })).data;
+  const dumped = JSON.stringify(dump);
+  check('the export keeps the description', dumped.includes('Two plots side by side'));
+  check('and leaves the bytes out', !dumped.includes(big.slice(0, 512)), dumped.length);
+
+  psock.close();
+  await call(`/api/rooms/${pcode}/admin`, { method: 'POST', key: pkey, body: { action: 'close' } });
+}
+
 console.log('export and close');
 const total = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total;
 const exported = (await call(`/api/rooms/${code}/export`, { key: adminKey })).data;

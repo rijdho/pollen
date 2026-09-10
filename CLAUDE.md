@@ -10,6 +10,21 @@ Every WebSocket message is a billed request. So:
 - **The presenter's socket carries the tally**, pushed on every vote. There is one of it.
 - **Phones carry the current question only**, pushed when the presenter moves.
 
+That split is also why a question's picture is stored and delivered the way it is, and the
+asymmetry is deliberate rather than an oversight:
+
+- **Phones get the picture inline**, riding along with the question push, which happens
+  about ten times a session. Zero extra requests.
+- **The projected screen fetches it** from `/api/rooms/:code/image?idx=N` and caches it.
+  Its socket is the one pushed on every vote, so a hundred kilobytes there would be a
+  hundred kilobytes per vote. Ten requests on one device instead.
+- **Pictures live in their own SQLite table, not in the question's spec.** `questions()`
+  reads every spec and runs on every vote (`scored()`, `vote()`, both views); pictures kept
+  in the spec would mean re-reading two megabytes of them each time somebody taps an
+  option, on a backend billed by rows and bytes read. This one is easy to undo by accident:
+  putting the bytes back into `prepareQuestion`'s spec would work perfectly in a two-person
+  test and cost a fortune in a lecture hall.
+
 Pushing results to the room, or letting phones poll, blows the free daily allowance with
 a single workshop (the README has the arithmetic). If a change makes the room receive
 anything per-vote, it has changed the cost model, not just the feature.
@@ -136,8 +151,17 @@ mentions any of the tallying or input functions, or contains a second copy of th
 policy, which it parses from `public/_headers` instead.
 
 Proved rather than claimed: `POLLEN_BASE=http://127.0.0.1:8789 npm run live` and the same
-for `npm run ui` pass all 137 and all 45 checks against the Node server, which are the
+for `npm run ui` pass all 155 and all 69 checks against the Node server, which are the
 suites that pass against the Worker.
+
+**The variable is `POLLEN_BASE`.** Every harness reads that name and nothing else, so a run
+started with a different one (`POLLEN_ORIGIN`, say) silently falls back to the default
+`http://127.0.0.1:8788` and tests the Worker twice while appearing to test both. That
+happened on 2026-09-10 and the mistake reached a release note before it was caught. The
+cheap check is to look at which process holds each port, rather than trusting the command
+line: `lsof -ti :8789 -sTCP:LISTEN | xargs ps -o command=`. `server/index.mjs` takes its
+port from `PORT`, not from an argument, so `node server/index.mjs --port 8789` binds 8788
+and collides with wrangler.
 
 Three things that cost time when this was built, all in the seam rather than the logic:
 
@@ -225,11 +249,11 @@ decoding the new matrix would make that test vacuous.**
 Public, released, deployed and citable. All commits pushed. The deployed files are
 byte-identical to the working tree, compared by hash rather than by trusting a deploy log.
 
-    npm test        83 unit tests, no server needed
+    npm test        101 unit tests, no server needed
     npm run dev     wrangler on http://127.0.0.1:8788
     npm run serve   the same tool on Node, no Cloudflare
-    npm run live    137 checks against a running server    (needs dev or serve)
-    npm run ui      54 checks driving the pages in a browser (needs a server + Chrome)
+    npm run live    155 checks against a running server    (needs dev or serve)
+    npm run ui      69 checks driving the pages in a browser (needs a server + Chrome)
 
 `npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
 `npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first
@@ -262,8 +286,16 @@ CHANGELOG under their own release heading.
    says how many were left out, but the presenter cannot see them at all.
 4. **The scoreboard has no speed bonus.** Doing it honestly means timing arrival at the
    object, never trusting a time a phone reports.
+5. **The room cannot attach pictures, only the presenter can.** Asked and answered on
+   2026-09-10: an anonymous photograph three metres wide has no moderation story and no
+   accountable author, because audience items carry a position rather than a device token
+   on purpose. Reopening it means reopening the approval queue that word clouds shed.
+6. **A picture is capped at 100 KB and 1280 pixels** (`LIMITS.image`). Chosen with the
+   author, and reached by re-encoding in the browser rather than by refusing the file. The
+   floor is quality 0.5 in `imagefile.js`; below that text stops being readable, so an
+   image that will not fit is refused with a named cause instead.
 
-**Nothing is unreleased.** v1.3.0 is the last tag and everything on `main` is in it. When
+**Nothing is unreleased.** v1.4.0 is the last tag and everything on `main` is in it. When
 the next one is worth a DOI: the concept DOI never changes, and the version DOI replaces
 its predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
 version DOIs live in the CHANGELOG under their own release heading.

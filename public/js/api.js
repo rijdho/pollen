@@ -60,6 +60,20 @@ export const api = {
 };
 
 /**
+ * Where a question's picture is served from. A URL rather than bytes, because
+ * this is what the projected screen uses: the presenter's socket carries the
+ * tally on every vote and must stay small, so the picture is fetched once and
+ * then held in the browser's cache for as long as the room can live.
+ *
+ * Phones do not use this. They receive the picture inline with the question,
+ * which they are pushed only when the presenter moves, so it costs them no
+ * request at all.
+ */
+export function imageUrl(code, idx) {
+  return `/api/rooms/${encodeURIComponent(code)}/image?idx=${encodeURIComponent(idx)}`;
+}
+
+/**
  * A socket that reopens itself. Venue wifi drops connections for sport, and a
  * projector that silently stops updating halfway through a session is worse
  * than one that never worked, because nobody notices.

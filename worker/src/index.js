@@ -3,9 +3,9 @@
 // 2025-04-01), so everything below is an API call and every one of them is
 // billed. Keep it that way.
 
-import { Room } from './room.js?v=1';
-import { Throttle } from './throttle.js?v=1';
-import { generateCode, normaliseCode } from '../../public/js/shared/codes.js?v=1';
+import { Room } from './room.js?v=2';
+import { Throttle } from './throttle.js?v=2';
+import { generateCode, normaliseCode } from '../../public/js/shared/codes.js?v=2';
 
 export { Room, Throttle };
 
@@ -67,6 +67,11 @@ async function route(request, env, url) {
     const voter = voterOf(request);
     if (!voter) return json({ error: 'no_voter' }, 400);
     return forward(room, 'nick', { voter }, request);
+  }
+  if (action === 'image' && request.method === 'GET') {
+    // No key, like the question itself: anyone holding the code is already
+    // entitled to see what is on the wall.
+    return forward(room, 'image', { idx: url.searchParams.get('idx') || '0' }, request);
   }
   if (action === 'results' && request.method === 'GET') {
     return forward(room, 'results', { idx: url.searchParams.get('idx') || '0' }, request);
@@ -174,7 +179,11 @@ async function forward(room, op, params, request) {
   // The original request is the init on purpose: rebuilding one by hand drops
   // the Upgrade header and the WebSocket handshake silently becomes a 426.
   const res = await room.fetch(new Request(target.toString(), request));
-  return res.webSocket ? res : withHeaders(res);
+  if (res.webSocket) return res;
+  // An image answers with its own content type and its own caching, and
+  // stamping the JSON headers over them would serve a picture as application
+  // /json with no-store: unrenderable, and re-fetched on every question.
+  return res.headers.get('content-type')?.startsWith('image/') ? res : withHeaders(res);
 }
 
 function withHeaders(res) {

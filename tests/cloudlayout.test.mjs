@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { layoutCloud } from '../public/js/shared/cloudlayout.js?v=1';
+import { layoutCloud } from '../public/js/shared/cloudlayout.js?v=2';
 
 // A predictable measurer, so these tests are about the placement and not about
 // how one font happens to render.

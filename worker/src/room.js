@@ -5,9 +5,10 @@
 // Everything a participant sends is re-checked here. The browser's maxlength
 // is a courtesy; this file is the boundary.
 
-import { LIMITS } from '../../public/js/shared/limits.js?v=1';
-import { sanitiseText, wordCount, cloudKey } from '../../public/js/shared/sanitize.js?v=1';
-import { tallyChoice, tallyScale, tallyCloud, tallyRank } from '../../public/js/shared/aggregate.js?v=1';
+import { LIMITS } from '../../public/js/shared/limits.js?v=2';
+import { sanitiseText, wordCount, cloudKey } from '../../public/js/shared/sanitize.js?v=2';
+import { tallyChoice, tallyScale, tallyCloud, tallyRank } from '../../public/js/shared/aggregate.js?v=2';
+import { readImage } from '../../public/js/shared/image.js?v=2';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
@@ -27,6 +28,15 @@ CREATE TABLE IF NOT EXISTS voters (
   voter TEXT PRIMARY KEY, first_at INTEGER NOT NULL,
   window_at INTEGER NOT NULL, window_n INTEGER NOT NULL,
   nick TEXT
+);
+-- Question images live apart from the questions on purpose. questions() reads
+-- every spec and runs on every vote (see scored(), vote() and the views), so an
+-- image kept in the spec would mean re-reading every picture in the room each
+-- time one person taps an option: twenty questions at a hundred kilobytes is
+-- 2 MB of SQLite read per vote, on a backend billed by rows and bytes read.
+-- Here it is loaded only for the question actually being sent to somebody.
+CREATE TABLE IF NOT EXISTS images (
+  idx INTEGER PRIMARY KEY, src TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS upvotes (
   q INTEGER NOT NULL, target_voter TEXT NOT NULL, target_seq INTEGER NOT NULL,
@@ -117,6 +127,7 @@ export class Room {
     clean.forEach((q, i) => {
       this.sql.exec('INSERT INTO questions (idx, type, prompt, spec) VALUES (?, ?, ?, ?)',
         i, q.type, q.prompt, JSON.stringify(q.spec));
+      if (q.image) this.sql.exec('INSERT INTO images (idx, src) VALUES (?, ?)', i, q.image);
     });
     this.ctx.storage.setAlarm(expiresAt);
     return { room: { code, adminKey, expiresAt, questions: clean.length } };
@@ -148,7 +159,17 @@ export class Room {
     if (!q) return null;
     const spec = { ...q.spec };
     if (q.type === 'choice' && !revealed) delete spec.correct;
+    // The picture is fetched here rather than carried in the spec, so the one
+    // question going out is the only one read. spec.image is what the editor
+    // wrote (the description, or nothing); src is the bytes.
+    if (spec.image) spec.image = { ...spec.image, src: this.imageOf(q.idx) };
     return { idx: q.idx, type: q.type, prompt: q.prompt, spec };
+  }
+
+  /** The image bytes for one question, or null. One row, read on demand. */
+  imageOf(idx) {
+    const row = this.sql.exec('SELECT src FROM images WHERE idx = ?', idx).toArray()[0];
+    return row?.src || null;
   }
 
   /** Whether anything in this room can be right, which is what makes a score. */
@@ -517,6 +538,7 @@ export class Room {
       const idx = questions.length;
       this.sql.exec('INSERT INTO questions (idx, type, prompt, spec) VALUES (?, ?, ?, ?)',
         idx, prepared.type, prepared.prompt, JSON.stringify(prepared.spec));
+      if (prepared.image) this.sql.exec('INSERT INTO images (idx, src) VALUES (?, ?)', idx, prepared.image);
     } else if (action === 'reveal') {
       this.setMeta('revealed', Boolean(payload.revealed));
     } else if (action === 'close') {
@@ -652,6 +674,34 @@ export class Room {
       return json({ items: this.qaItems(idx, url.searchParams.get('voter') || '') });
     }
 
+    if (op === 'image') {
+      // A question's picture, served as an image rather than carried in the
+      // presenter's socket. That socket pushes the tally on every single vote,
+      // so nothing large may ride on it: a hundred kilobytes there would be a
+      // hundred kilobytes per vote. Phones get the picture inline instead,
+      // because their push happens only when the presenter moves.
+      //
+      // One request per question, on one device, and the browser caches it for
+      // as long as the room can live. Going back to a question costs nothing.
+      const idx = Number(url.searchParams.get('idx'));
+      const image = Number.isInteger(idx) ? readImage(this.imageOf(idx)) : null;
+      if (!image) return json({ error: 'no_image' }, 404);
+      return new Response(base64ToBytes(image.src.slice(image.src.indexOf(',') + 1)), {
+        status: 200,
+        headers: {
+          // The type comes from the allowlist in LIMITS.image, never from the
+          // request, so this can only ever be one of three raster types. With
+          // nosniff and a policy of its own, a direct hit on this URL is a
+          // picture and cannot become a document.
+          'content-type': image.mime,
+          'cache-control': 'private, max-age=43200, immutable',
+          'content-security-policy': "default-src 'none'; sandbox",
+          'x-content-type-options': 'nosniff',
+          'referrer-policy': 'no-referrer',
+        },
+      });
+    }
+
     if (op === 'results') {
       // Fetched by a phone, once, and only for a question whose author chose to
       // share the tally. Still a fetch and not a push: one request per person
@@ -730,7 +780,27 @@ export class Room {
 
 // --- helpers ---------------------------------------------------------------
 
+/**
+ * A question as it will be stored. The image is handled here rather than in
+ * each of the five type branches, because it means the same thing on all of
+ * them: a picture the question is about.
+ *
+ * The bytes come back on `image`, separate from the spec, because they are
+ * stored in their own table. The spec keeps only the description, which is
+ * small, belongs with the question, and is read on every vote anyway.
+ */
 function prepareQuestion(q) {
+  const prepared = prepareQuestionBody(q);
+  if (!prepared) return null;
+  const image = readImage(q.image?.src);
+  if (image) {
+    prepared.image = image.src;
+    prepared.spec.image = { alt: sanitiseText(String(q.image?.alt ?? ''), LIMITS.image.maxAltChars) };
+  }
+  return prepared;
+}
+
+function prepareQuestionBody(q) {
   if (!q || !QUESTION_TYPES.has(q.type)) return null;
   const prompt = sanitiseText(String(q.prompt ?? ''), LIMITS.prompt.maxChars);
   if (prompt === '') return null;
@@ -805,6 +875,14 @@ function prepareQuestion(q) {
       showResults: q.showResults === true,
     },
   };
+}
+
+/** base64 to bytes. The payload has already been checked by readImage(). */
+function base64ToBytes(payload) {
+  const binary = atob(payload);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+  return out;
 }
 
 function clamp(n, lo, hi) {

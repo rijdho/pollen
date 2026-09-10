@@ -2,7 +2,7 @@
 // choice on this device, then what the browser asks for. Nothing is stored
 // server-side and the choice is not a cookie.
 
-import { STRINGS, LOCALES, LOCALE_NAMES } from './locales.js?v=1';
+import { STRINGS, LOCALES, LOCALE_NAMES } from './locales.js?v=2';
 
 const STORAGE_KEY = 'pollen.lang';
 

@@ -21,7 +21,7 @@ import { join, extname, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 
 import { Namespace } from './durable.mjs';
-import worker, { Room, Throttle } from '../worker/src/index.js?v=1';
+import worker, { Room, Throttle } from '../worker/src/index.js?v=2';
 
 const PORT = Number(process.env.PORT || 8788);
 const HOST = process.env.HOST || '127.0.0.1';

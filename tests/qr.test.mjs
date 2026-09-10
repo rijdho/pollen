@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { qrMatrix, qrPath } from '../public/js/qr.js?v=1';
+import { qrMatrix, qrPath } from '../public/js/qr.js?v=2';
 
 const JOIN_URL = 'https://pollen.rijdho.org/K7RM2Q';
 

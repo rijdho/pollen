@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 
-import { CODE_ALPHABET, generateCode, normaliseCode, isCode } from '../public/js/shared/codes.js?v=1';
+import { CODE_ALPHABET, generateCode, normaliseCode, isCode } from '../public/js/shared/codes.js?v=2';
 
 test('the alphabet excludes every shape collision and every vowel', () => {
   for (const banned of ['0', 'O', '1', 'I', 'L', 'A', 'E', 'U']) {

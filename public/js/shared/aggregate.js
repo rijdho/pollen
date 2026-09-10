@@ -2,7 +2,7 @@
 // storage and no DOM, so the Worker, the browser and the tests all run the
 // same code and the numbers on screen are the numbers under test.
 
-import { cloudKey } from './sanitize.js?v=1';
+import { cloudKey } from './sanitize.js?v=2';
 
 /**
  * Whole percentages that sum to exactly 100, by largest remainder.
