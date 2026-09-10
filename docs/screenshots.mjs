@@ -42,7 +42,12 @@ const BACKING = [3, 1, 2, 0]; // supports per question, in the order above
 const voter = (n) => 'shot' + String(n).padStart(8, '0');
 
 async function api(path, { method = 'GET', body, key, who } = {}) {
-  const headers = { 'cf-connecting-ip': '2001:db8:5ec7:5ec7::1' };
+  // Only against a local dev server. Cloudflare's edge refuses a request that
+  // carries its own cf-connecting-ip header outright, with a 403, which is also
+  // why the creation throttle cannot be dodged by spoofing an address.
+  const headers = BASE.includes('127.0.0.1') || BASE.includes('localhost')
+    ? { 'cf-connecting-ip': '2001:db8:5ec7:5ec7::1' }
+    : {};
   if (body) headers['content-type'] = 'application/json';
   if (key) headers['x-pollen-key'] = key;
   if (who) headers['x-pollen-voter'] = who;
