@@ -234,7 +234,18 @@ a { color: var(--brand); }
   padding: clamp(.75rem, 2vw, 1.1rem); background: transparent;
 }
 .add-row .actions { margin-top: .25rem; }
-.q-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.q-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+/* The position, beside the type it belongs to, rather than a number buried in
+   a label at one end and the buttons that change it at the other. */
+.q-pos {
+  font-family: var(--mono); font-weight: 600; font-size: .8125rem;
+  font-variant-numeric: tabular-nums; color: var(--brand);
+  width: 1.8em; height: 1.8em; display: grid; place-items: center;
+  border: 1px solid var(--hairline); border-radius: var(--r-sm);
+  flex: 0 0 auto;
+}
+.q-type { flex: 0 0 auto; }
+.q-head .q-tools { margin-left: auto; }
 .q-tools { display: flex; gap: .25rem; }
 .q-body { margin-top: .5rem; }
 .opt-row { display: flex; gap: .5rem; align-items: center; }

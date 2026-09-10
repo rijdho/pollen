@@ -13,7 +13,9 @@ import puppeteer from 'puppeteer';
 import { mkdirSync } from 'node:fs';
 
 const BASE = process.env.POLLEN_BASE || 'http://127.0.0.1:8788';
-const OUT = 'docs';
+// POLLEN_SKIN=austere renders the prototype skin instead, into docs/austere/.
+const SKIN = process.env.POLLEN_SKIN ? `?skin=${process.env.POLLEN_SKIN}` : '';
+const OUT = process.env.POLLEN_SKIN ? `docs/${process.env.POLLEN_SKIN}` : 'docs';
 mkdirSync(OUT, { recursive: true });
 
 const QUESTIONS = [
@@ -69,16 +71,35 @@ async function shot(page, name, size) {
 // The presenter's key lives in localStorage, so it has to be put there before
 // the page routes, exactly as opening the room would have done.
 const presenter = await browser.newPage();
-await presenter.goto(BASE + '/', { waitUntil: 'networkidle0' });
+await presenter.goto(BASE + '/' + SKIN, { waitUntil: 'networkidle0' });
 await presenter.evaluate((c, k) => {
   localStorage.setItem('pollen.rooms', JSON.stringify([{ code: c, adminKey: k, expiresAt: Date.now() + 3600e3 }]));
 }, code, adminKey);
+
+// The editor, before any room exists: the type of every question is a control,
+// and the arrows that reorder them are disabled at the ends.
+const editor = await browser.newPage();
+await editor.goto(BASE + '/' + SKIN, { waitUntil: 'networkidle0' });
+await editor.click('.card-lead .btn-brand');
+await editor.waitForSelector('.q-card', { timeout: 8000 });
+await editor.evaluate(async () => {
+  const type = (n, v) => { n.value = v; n.dispatchEvent(new Event('input', { bubbles: true })); };
+  type(document.querySelector('.q-card input[type=text]'), 'Which of these worries you most?');
+  const opts = document.querySelectorAll('.q-card .opt-row input[type=text]');
+  type(opts[0], 'Cost'); type(opts[1], 'Time');
+  [...document.querySelectorAll('.add-row .btn')][1].click();
+  await new Promise((r) => setTimeout(r, 150));
+  type(document.querySelectorAll('.q-card')[1].querySelector('input[type=text]'), 'How clear was that session?');
+  window.scrollTo(0, 0);
+});
+await shot(editor, 'editor', { width: 1000, height: 760 });
+await editor.close();
 
 await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 0 } } });
 for (const [i, pick] of CHOICES.entries()) {
   await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(i), body: { idx: 0, value: pick } });
 }
-await presenter.goto(`${BASE}/p/${code}`, { waitUntil: 'networkidle0' });
+await presenter.goto(`${BASE}/p/${code}${SKIN}`, { waitUntil: 'networkidle0' });
 await shot(presenter, 'presenter-choice', { width: 1280, height: 760 });
 
 await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 1 } } });
@@ -89,7 +110,7 @@ await shot(presenter, 'presenter-scale', { width: 1280, height: 800 });
 await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 0 } } });
 
 const phone = await browser.newPage();
-await phone.goto(`${BASE}/${code}`, { waitUntil: 'networkidle0' });
+await phone.goto(`${BASE}/${code}${SKIN}`, { waitUntil: 'networkidle0' });
 await shot(phone, 'participant', { width: 420, height: 720 });
 
 await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 2 } } });

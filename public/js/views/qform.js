@@ -19,8 +19,44 @@ export function blankQuestion(type) {
   return { type, prompt: '', entries: 1, moderation: false };
 }
 
+/**
+ * Change a question's type without losing what has already been typed. The
+ * prompt always survives, and so do the settings that mean the same thing in
+ * both types; everything specific to the old type is dropped, because there is
+ * no honest way to turn three options into a five-step scale.
+ */
+export function retype(q, type) {
+  const next = blankQuestion(type);
+  next.prompt = q.prompt;
+  if ('seconds' in next && 'seconds' in q) next.seconds = q.seconds;
+  if ('showResults' in next && 'showResults' in q) next.showResults = q.showResults;
+  // Options carry between the two types that have them, which is the switch
+  // someone actually makes: a list written as a poll, meant as a ranking.
+  if (Array.isArray(next.options) && Array.isArray(q.options)) {
+    const carried = q.options.slice(0, LIMITS.choice.maxOptions);
+    while (carried.length < 2) carried.push('');
+    next.options = carried;
+  }
+  return next;
+}
+
 export function typeLabel(type) {
   return t('editor.add' + type[0].toUpperCase() + type.slice(1));
+}
+
+/**
+ * The type, as a control rather than a label. It was a static eyebrow, which
+ * meant the first question was permanently whatever the editor happened to
+ * start with and a question written as the wrong type had to be deleted and
+ * retyped from scratch.
+ */
+export function typePicker(q, onChange) {
+  return el('select', {
+    class: 'lang q-type', 'aria-label': t('editor.type'),
+    onChange: (event) => onChange(event.target.value),
+  }, QUESTION_TYPES.map((type) => el('option', {
+    value: type, selected: type === q.type, text: typeLabel(type),
+  })));
 }
 
 /** A prompt field bound to `q`, shared by every type. */

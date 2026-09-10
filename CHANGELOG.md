@@ -84,6 +84,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **A question's type is now a control, not a label.** The editor opened with a
+  multiple choice already placed and no way to change it, so the first question
+  was whatever the editor happened to start with unless you deleted it and added
+  another. Any question can now be switched, and the prompt survives the switch,
+  as do the options where both types have them and the countdown and tally
+  settings where both types mean the same thing by them.
+- The arrows that reorder questions are disabled at the ends. They used to be
+  live and do nothing, which is indistinguishable from a broken button, and the
+  position number now sits beside the type it belongs to rather than at the
+  other end of the row from the buttons that change it.
+
+
 - **Word cloud entries no longer wait for approval.** They are one to three
   words, already stripped of anything that could reorder or overflow what is
   displayed, and holding each one turned every cloud into a queue the presenter

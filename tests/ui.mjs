@@ -55,6 +55,70 @@ const built = await page.evaluate(async () => {
   };
 });
 ok('every question type is offered', built.types.length === 5, built.types);
+
+{
+  // On a scratch question added for the purpose, then removed. Doing this to
+  // question one wiped its right answer, because retype drops what the new
+  // type has no meaning for, and every later check that needed a scoreboard
+  // then failed: a test that corrupts the state it shares is worse than no
+  // test.
+  const retyped = await page.evaluate(async () => {
+    [...document.querySelectorAll('.add-row .btn')][0].click();
+    await new Promise((r) => setTimeout(r, 200));
+    const cards = () => [...document.querySelectorAll('.q-card')];
+    const scratch = cards()[cards().length - 1];
+    const field = scratch.querySelector('input[type=text]');
+    field.value = 'Scratch question';
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    const picker = scratch.querySelector('.q-type');
+    picker.value = 'rank';
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    const after = cards()[cards().length - 1];
+    return {
+      prompt: after.querySelector('input[type=text]').value,
+      type: after.querySelector('.q-type').value,
+    };
+  });
+  ok('a question is not stuck as the type it was created with',
+    retyped.type === 'rank', retyped);
+  ok('and changing the type keeps the question already written',
+    retyped.prompt === 'Scratch question', retyped);
+
+  const order = await page.evaluate(async () => {
+    const prompts = () => [...document.querySelectorAll('.q-card')]
+      .map((c) => c.querySelector('input[type=text]').value);
+    const arrows = (glyph) => [...document.querySelectorAll('.q-card .q-tools .btn')]
+      .filter((b) => b.textContent === glyph);
+    const out = {
+      firstUpDisabled: arrows('↑')[0].disabled,
+      lastDownDisabled: arrows('↓').pop().disabled,
+      before: prompts(),
+    };
+    // Walk the scratch question to the top and back down again.
+    const last = arrows('↑').length - 1;
+    arrows('↑')[last].click();
+    await new Promise((r) => setTimeout(r, 200));
+    out.after = prompts();
+    arrows('↓')[last - 1].click();
+    await new Promise((r) => setTimeout(r, 200));
+    out.restored = prompts();
+    // And remove it, so the room that opens is the one the rest of the run
+    // expects.
+    [...document.querySelectorAll('.q-card')].pop()
+      .querySelectorAll('.q-tools .btn')[2].click();
+    await new Promise((r) => setTimeout(r, 200));
+    out.remaining = document.querySelectorAll('.q-card').length;
+    return out;
+  });
+  ok('questions can be reordered after they are all written',
+    order.after[order.after.length - 2] === 'Scratch question'
+    && order.restored[order.restored.length - 1] === 'Scratch question', order);
+  ok('and the arrows are disabled at the ends rather than silently doing nothing',
+    order.firstUpDisabled && order.lastDownDisabled, order);
+  ok('the scratch question left no trace', order.remaining === 2, order.remaining);
+}
+
 ok('a set can be saved to the device', built.saved === 1, built);
 
 await page.evaluate(async () => {
@@ -175,6 +239,12 @@ await page.evaluate(async () => {
   await new Promise((r) => setTimeout(r, 200));
   const type = (n, v) => { n.value = v; n.dispatchEvent(new Event('input', { bubbles: true })); };
   type(open.querySelector('input[type=text]'), 'Order these');
+  // Switching type carries the options already written, so the draft arrives
+  // with however many the previous type had, not with a fixed three.
+  while (open.querySelectorAll('.opt-row').length < 3) {
+    [...open.querySelectorAll('.btn')].find((b) => b.textContent.match(/Add option|Antwort hinzu|Añadir opción/)).click();
+    await new Promise((r) => setTimeout(r, 120));
+  }
   const opts = open.querySelectorAll('.opt-row input[type=text]');
   type(opts[0], 'Cost'); type(opts[1], 'Speed'); type(opts[2], 'Quality');
   // Share the tally with the phones, which is off unless asked for.

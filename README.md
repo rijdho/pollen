@@ -43,6 +43,17 @@ running:
 - **Audience questions.** The room writes the questions and supports each other's; the
   presenter sees them ordered by support and answers the ones that rise.
 
+Every question's type is a control rather than a label, so the first one is not stuck as
+whatever the editor opened with, and a question written as the wrong type can be switched
+without losing what is already typed. The arrows beside it reorder the set, and they are
+disabled at the ends rather than doing nothing.
+
+![The question editor. The first question is numbered 1 and carries a dropdown reading
+"Multiple choice", with an up arrow greyed out, a down arrow and a Remove button on the
+right. Below it the question "Which of these worries you most?", two options, and the
+settings for right answers, multiple answers, a countdown and showing the tally on
+phones.](docs/editor.png)
+
 Any multiple-choice question can be given a right answer, which turns it into a quiz: the
 presenter reveals the answer when they choose, and a scoreboard appears for whoever
 entered a name. Any question can be given a countdown, timed by the server so it cannot be
@@ -174,7 +185,7 @@ their browser's local storage and nowhere else.
 npm test          # 59 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
 npm run live      # 101 end-to-end checks against the running Worker
-npm run ui        # 23 checks driving the real pages in a real browser
+npm run ui        # 31 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages

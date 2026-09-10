@@ -1,7 +1,7 @@
 import { el, clear, status, appendAll } from '../ui.js?v=1';
 import { t } from '../i18n.js?v=1';
 import { LIMITS } from '../shared/limits.js?v=1';
-import { QUESTION_TYPES, blankQuestion, typeLabel, promptField, typeFields } from './qform.js?v=1';
+import { QUESTION_TYPES, blankQuestion, retype, typeLabel, typePicker, promptField, typeFields } from './qform.js?v=1';
 import { saveDeck } from '../decks.js?v=1';
 
 /**
@@ -39,10 +39,24 @@ export function renderEditor(root, { onCreate, onBack, deck = null }) {
   function card(q, i) {
     return el('section', { class: 'card q-card' }, [
       el('div', { class: 'q-head' }, [
-        el('span', { class: 'eyebrow', text: (i + 1) + '. ' + typeLabel(q.type) }),
+        el('span', { class: 'q-pos', text: String(i + 1) }),
+        typePicker(q, (type) => {
+          questions[i] = retype(q, type);
+          draw();
+        }),
         el('div', { class: 'q-tools' }, [
-          el('button', { class: 'btn btn-quiet', type: 'button', text: '↑', title: t('editor.moveUp'), 'aria-label': t('editor.moveUp'), onClick: () => move(i, -1) }),
-          el('button', { class: 'btn btn-quiet', type: 'button', text: '↓', title: t('editor.moveDown'), 'aria-label': t('editor.moveDown'), onClick: () => move(i, 1) }),
+          // Disabled at the ends rather than silently doing nothing, which is
+          // indistinguishable from a broken button.
+          el('button', {
+            class: 'btn btn-quiet', type: 'button', text: '↑',
+            title: t('editor.moveUp'), 'aria-label': t('editor.moveUp') + ': ' + (q.prompt || typeLabel(q.type)),
+            disabled: i === 0, onClick: () => move(i, -1),
+          }),
+          el('button', {
+            class: 'btn btn-quiet', type: 'button', text: '↓',
+            title: t('editor.moveDown'), 'aria-label': t('editor.moveDown') + ': ' + (q.prompt || typeLabel(q.type)),
+            disabled: i === questions.length - 1, onClick: () => move(i, 1),
+          }),
           el('button', { class: 'btn btn-quiet', type: 'button', text: t('editor.remove'), onClick: () => { questions.splice(i, 1); draw(); } }),
         ]),
       ]),

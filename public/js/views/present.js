@@ -5,7 +5,7 @@ import { qrSvg } from '../qr.js?v=1';
 import { cloudWeight } from '../shared/aggregate.js?v=1';
 import { layoutCloud } from '../shared/cloudlayout.js?v=1';
 import { forget } from '../rooms.js?v=1';
-import { blankQuestion, typeLabel, promptField, typeFields, QUESTION_TYPES } from './qform.js?v=1';
+import { blankQuestion, retype, typeLabel, promptField, typeFields, QUESTION_TYPES } from './qform.js?v=1';
 
 /**
  * The projected screen. It is the only view that sees results, and the only
@@ -108,7 +108,9 @@ export function renderPresent(root, { code, adminKey, onHome }) {
         el('div', { class: 'actions' }, QUESTION_TYPES.map((type) => el('button', {
           class: draft.type === type ? 'btn btn-brand' : 'btn', type: 'button',
           text: typeLabel(type),
-          onClick: () => { draft = blankQuestion(type); redraw(); },
+          // retype, not blankQuestion: changing your mind about the type should
+          // not throw away the question you have already typed.
+          onClick: () => { draft = retype(draft, type); redraw(); },
         }))),
         promptField(draft),
         typeFields(draft),
