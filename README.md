@@ -182,10 +182,10 @@ their browser's local storage and nowhere else.
 ## Tests
 
 ```bash
-npm test          # 59 unit tests, no dependencies, Node's own runner
+npm test          # 75 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
-npm run live      # 101 end-to-end checks against the running Worker
-npm run ui        # 31 checks driving the real pages in a real browser
+npm run live      # 137 end-to-end checks against the running Worker
+npm run ui        # 42 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
@@ -217,6 +217,29 @@ npm run dev       # http://127.0.0.1:8788
 
 No build step for the browser: the platform serves the files as they are, so what is
 deployed is what is in the repository.
+
+## Run your own copy
+
+```bash
+git clone https://github.com/rijdho/pollen && cd pollen
+npm install
+npx wrangler login
+npx wrangler deploy -c wrangler.self-host.toml
+```
+
+That is the whole setup. **There is no database to connect**, no API key to obtain and no
+service to sign up for: the rooms are Durable Objects, created inside your own Cloudflare
+account on the first deploy, and the two bindings in the config are the only ones this
+Worker has. Nothing in the repository points at anybody else's deployment, and the join
+and recovery links are built from wherever it is actually running.
+
+It lands on your own `workers.dev` subdomain. To put it on a domain you own, add a `routes`
+block like the one in `wrangler.toml` and set `workers_dev = false`.
+
+Two configs is the shape this repository's own notes warn about, so `tests/selfhost.test.mjs`
+fails if they drift: every line of the deployed config except the two personal ones must
+appear in the self-host one, and the Worker must still ask for no binding beyond the two
+Durable Objects.
 
 ## Deploy
 

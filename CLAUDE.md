@@ -105,6 +105,21 @@ room. `own` is computed per request, so each viewer learns only about their own 
 - **The voter token must be 8 to 64 characters** of `[A-Za-z0-9_-]`. Shorter is refused
   with `no_voter`, which is a 400 and no broadcast, so a socket read after it hangs.
 
+## Two Wrangler configs, and why
+
+`wrangler.toml` is this deployment: it carries the custom domain route and `workers_dev =
+false`. `wrangler.self-host.toml` is the same file without those two things, so a clone
+deploys to the cloner's own `workers.dev` with no editing.
+
+Two homes for one thing is exactly what the root conventions warn drifts, so
+`tests/selfhost.test.mjs` pins them: every line of the real config except the two personal
+ones must appear in the self-host one, neither may gain a line the other lacks, and the
+Worker must still ask for no binding beyond the two Durable Objects. **A new binding is a
+new setup step for everyone self-hosting**, and that test is where it shows up.
+
+The reason "connect it to your own database" has no steps is that there is no database: the
+rooms are Durable Objects, created inside whoever's account deploys it. Keep it that way.
+
 ## Tests
 
 Three suites, and they cover different things. `npm test` is unit only and needs no

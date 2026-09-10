@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **A clone can now be deployed.** `wrangler.self-host.toml` is the deployed
+  config without the custom domain route, so someone who downloads the
+  repository gets a working copy on their own Cloudflare account with
+  `npx wrangler deploy -c wrangler.self-host.toml` and no editing. There is
+  nothing to connect: storage is Durable Objects, created inside their account,
+  and the Worker asks for no other binding, no key and no external service.
+  `tests/selfhost.test.mjs` pins the two configs against drift and fails if the
+  Worker ever grows a binding, because that would be a new setup step for
+  everyone running their own.
+
 - First working version: multiple choice, rating scales and word clouds, with a
   six-character room code and a QR code on the projected screen.
 - Word-cloud moderation, on by default, so nothing a participant types reaches
