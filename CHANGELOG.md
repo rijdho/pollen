@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.3.0] - 2026-09-10
 
+Version DOI: [10.5281/zenodo.22690556](https://doi.org/10.5281/zenodo.22690556)
+
 ### Added
 
 - **A presentation mode for the projected screen.** The join block collapses to

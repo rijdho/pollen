@@ -27,8 +27,8 @@ identifiers:
     value: 10.5281/zenodo.22685893
     description: "Concept DOI, always resolves to the latest version"
   - type: doi
-    value: 10.5281/zenodo.22690076
-    description: "Version DOI for v1.2.0"
+    value: 10.5281/zenodo.22690556
+    description: "Version DOI for v1.3.0"
 repository-code: "https://github.com/rijdho/pollen"
 url: "https://pollen.rijdho.org"
 license: AGPL-3.0-or-later
