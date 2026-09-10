@@ -76,8 +76,13 @@ room. `own` is computed per request, so each viewer learns only about their own 
 - **DOM `append()` stringifies its arguments.** A conditional child written as `x && node`
   puts a literal `false` on the page. `el()` filters falsy children and `appendAll()` does
   the same for lists built outside it; never call `node.append(...)` with a maybe-null.
-  This reached a screen twice, so `tests/ui.mjs` now fails on any of `null`, `undefined`,
-  `false`, `NaN` or `[object Object]` appearing as a word on either page.
+  This reached a screen **three times**. The check added after the second one missed the
+  third because it was written for the two pages that happened to be open, which is the
+  same mistake as writing a rule for the instance instead of the class. `tests/ui.mjs` now
+  fails on any of `null`, `undefined`, `false`, `NaN` or `[object Object]` appearing as a
+  word on **every** view, including the home page in both its states: a device with nothing
+  saved and one that has opened a room are different branches of the same conditional, and
+  only the first was broken.
 - **Do not run one `python3 -c` replace across two functions that share a line.** The qa
   and cloud writers had identical `INSERT` statements; an unbounded `.replace` patched both
   and left the cloud path referring to a variable that only exists in the other. It failed

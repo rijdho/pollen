@@ -1,4 +1,4 @@
-import { el, clear, status } from '../ui.js?v=1';
+import { el, clear, status, appendAll } from '../ui.js?v=1';
 import { t } from '../i18n.js?v=1';
 import { LIMITS } from '../shared/limits.js?v=1';
 import { QUESTION_TYPES, blankQuestion, typeLabel, promptField, typeFields } from './qform.js?v=1';
@@ -89,7 +89,7 @@ export function renderEditor(root, { onCreate, onBack, deck = null }) {
 
   draw();
 
-  root.append(
+  appendAll(root, [
     el('section', { class: 'card card-lead' }, [
       el('h2', { class: 'card-title', text: t('editor.title') }),
       el('p', { class: 'hint', text: t('editor.hint') }),
@@ -121,5 +121,5 @@ export function renderEditor(root, { onCreate, onBack, deck = null }) {
       create,
     ]),
     message,
-  );
+  ]);
 }

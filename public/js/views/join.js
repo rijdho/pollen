@@ -1,4 +1,4 @@
-import { el, clear, status } from '../ui.js?v=1';
+import { el, clear, status, appendAll } from '../ui.js?v=1';
 import { t } from '../i18n.js?v=1';
 import { api, liveSocket, ApiError } from '../api.js?v=1';
 import { LIMITS } from '../shared/limits.js?v=1';
@@ -18,7 +18,7 @@ export function renderJoin(root, { code }) {
   const message = el('p', { class: 'status', role: 'status', hidden: true });
   const stage = el('section', { class: 'card card-lead join-stage' });
   const clock = el('p', { class: 'clock', hidden: true });
-  root.append(el('p', { class: 'join-room', text: code }), clock, stage, message);
+  appendAll(root, [el('p', { class: 'join-room', text: code }), clock, stage, message]);
 
   const sent = new Map();
   // What this device actually answered, kept locally. The socket pushes the

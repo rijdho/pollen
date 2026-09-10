@@ -217,9 +217,13 @@ const rankBoard = await page.evaluate(async () => {
 });
 ok('and the projector shows the average position', rankBoard.length === 3, rankBoard);
 
-// Nothing on either page ever reads as a stringified nothing. DOM append()
-// turns a null child into the word "null", and it has reached a screen twice.
-for (const [name, target] of [['the projector', page], ['the phone', phone]]) {
+// No page ever reads as a stringified nothing. DOM append() turns a null child
+// into the word "null", and it reached a screen three times: twice on the
+// presenter view and once on the home page, which this check was not looking at
+// because it had been written for the two pages that happened to be open.
+// EVERY view goes through it now, in the state a first-time visitor sees.
+const fresh = await browser.createBrowserContext();
+async function noStrayNothing(name, target) {
   const stray = await target.evaluate(() => {
     const text = document.body.innerText;
     return ['null', 'undefined', 'false', 'NaN', '[object Object]']
@@ -227,6 +231,33 @@ for (const [name, target] of [['the projector', page], ['the phone', phone]]) {
   });
   ok(`no stringified nothing on ${name}`, stray.length === 0, stray);
 }
+
+await noStrayNothing('the projector', page);
+await noStrayNothing('the phone', phone);
+
+{
+  // A device that has never opened a room and has saved nothing, which is the
+  // state the home page got wrong.
+  const visitor = await fresh.newPage();
+  await visitor.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await visitor.waitForSelector('.card-lead .btn-brand', { timeout: 8000 });
+  await noStrayNothing('the home page, on a device with nothing saved', visitor);
+
+  await visitor.click('.card-lead .btn-brand');
+  await visitor.waitForSelector('.q-card', { timeout: 8000 });
+  await noStrayNothing('the editor', visitor);
+
+  // And on the home page of a device that has opened a room, which is the other
+  // branch of the same conditional.
+  await noStrayNothing('the home page, on a device that has opened a room',
+    await (async () => {
+      const returning = await browser.newPage();
+      await returning.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+      await returning.waitForSelector('.card-lead .btn-brand', { timeout: 8000 });
+      return returning;
+    })());
+}
+await fresh.close();
 
 // The recovery link: a second device, with nothing in its storage, claiming the
 // room from the fragment alone.

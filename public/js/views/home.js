@@ -1,4 +1,4 @@
-import { el, clear, status } from '../ui.js?v=1';
+import { el, clear, status, appendAll } from '../ui.js?v=1';
 import { t } from '../i18n.js?v=1';
 import { normaliseCode } from '../shared/codes.js?v=1';
 import { myRooms } from '../rooms.js?v=1';
@@ -97,7 +97,11 @@ export function renderHome(root, { onCreate, onJoin, onPresent, onOpenDeck, onRe
     ]);
   }
 
-  root.append(
+  // appendAll, not append: `resume` is null on a device that has opened no
+  // rooms, and append() writes the word "null" between two cards. Third time
+  // this trap has reached a screen, which is why tests/ui.mjs now checks every
+  // page rather than the two it happened to be looking at.
+  appendAll(root, [
     el('section', { class: 'card card-lead' }, [
       el('p', { class: 'lede', text: t('home.lede') }),
       el('div', { class: 'actions' }, [
@@ -116,6 +120,6 @@ export function renderHome(root, { onCreate, onJoin, onPresent, onOpenDeck, onRe
       el('h2', { class: 'card-title', text: t('home.about.title') }),
       el('p', { text: t('home.about.body') }),
     ]),
-  );
+  ]);
   codeInput.focus();
 }

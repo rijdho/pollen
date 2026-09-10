@@ -63,7 +63,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
 
   const adder = el('details', { class: 'adder' });
 
-  root.append(
+  appendAll(root, [
     el('header', { class: 'present-head' }, [
       link, qrBox,
       el('div', { class: 'present-meta' }, [voters, expiry, countdown]),
@@ -74,7 +74,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     controls,
     el('div', { class: 'present-tools' }, [adder, recovery]),
     message,
-  );
+  ]);
 
   function secondsLeft() {
     const seconds = state?.question?.spec?.seconds || 0;
