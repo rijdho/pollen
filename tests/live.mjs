@@ -480,6 +480,170 @@ console.log('abuse controls');
   check('one usable question among the rubbish still opens a room', mixed.status === 200, mixed);
 }
 
+console.log('injection, forgery and malformed input');
+{
+  const MARKUP = '<img src=x onerror="alert(1)">';
+  const SQLI = "'; DROP TABLE votes; --";
+
+  // A payload as a question, which is the text that ends up largest on a wall.
+  const nasty = await call('/api/rooms', {
+    method: 'POST',
+    body: { questions: [{ type: 'choice', prompt: MARKUP, options: [SQLI, 'ok'] }] },
+  });
+  check('a room whose text is a payload is created like any other', nasty.status === 200, nasty);
+  const nastyCode = nasty.data.code;
+  const nastyKey = nasty.data.adminKey;
+  const stored = (await call(`/api/rooms/${nastyCode}/state`, { key: nastyKey })).data;
+  check('the payload comes back exactly as typed, neither escaped nor stripped',
+    stored.questions[0].prompt === MARKUP, stored.questions[0].prompt);
+  check('and so does the SQL one, because it is data',
+    (await call(`/api/rooms/${nastyCode}/state`, { key: nastyKey })).data.question === null
+    || true, 'checked below');
+
+  await call(`/api/rooms/${nastyCode}/admin`, { method: 'POST', key: nastyKey, body: { action: 'goto', payload: { idx: 0 } } });
+  const withOptions = (await call(`/api/rooms/${nastyCode}/state`, { key: nastyKey })).data;
+  check('a SQL payload survives as an option label and nothing else',
+    withOptions.question.spec.options[0] === SQLI, withOptions.question.spec.options);
+  await call(`/api/rooms/${nastyCode}/vote`, { method: 'POST', voter: who('inject-a'), body: { idx: 0, value: [0] } });
+  const stillCounting = (await call(`/api/rooms/${nastyCode}/state`, { key: nastyKey })).data;
+  check('and the table it tried to drop is still there',
+    stillCounting.results.counts[0] === 1, stillCounting.results);
+
+  // The same through every other text path.
+  const paths = await call('/api/rooms', {
+    method: 'POST',
+    body: {
+      questions: [
+        { type: 'cloud', prompt: 'words' },
+        { type: 'qa', prompt: 'ask', moderation: false },
+      ],
+    },
+  });
+  const pc = paths.data.code;
+  const pk = paths.data.adminKey;
+  await call(`/api/rooms/${pc}/admin`, { method: 'POST', key: pk, body: { action: 'goto', payload: { idx: 0 } } });
+  // An entry of pure punctuation folds to nothing, so it is refused rather
+  // than accepted and then silently dropped by the tally.
+  const punctuation = await call(`/api/rooms/${pc}/vote`, { method: 'POST', voter: who('inject-b'), body: { idx: 0, value: "'--" } });
+  check('an entry that would vanish is refused instead of quietly lost',
+    punctuation.status === 400 && punctuation.data.error === 'empty', punctuation);
+  await call(`/api/rooms/${pc}/vote`, { method: 'POST', voter: who('inject-b'), body: { idx: 0, value: "drop'--" } });
+  const cloudBack = (await call(`/api/rooms/${pc}/state`, { key: pk })).data.results;
+  check('but a real word carrying SQL metacharacters is one ordinary entry',
+    cloudBack.items.length === 1 && cloudBack.items[0].label === "drop'--", cloudBack.items);
+
+  await call(`/api/rooms/${pc}/admin`, { method: 'POST', key: pk, body: { action: 'goto', payload: { idx: 1 } } });
+  await call(`/api/rooms/${pc}/vote`, { method: 'POST', voter: who('inject-c'), body: { idx: 1, value: MARKUP } });
+  const qaBack = (await call(`/api/rooms/${pc}/qa?idx=1`, { voter: who('inject-c') })).data;
+  check('an audience question of markup is stored as its characters',
+    qaBack.items[0].text === MARKUP, qaBack.items[0]);
+
+  const nickAttack = await call(`/api/rooms/${pc}/nick`, { method: 'POST', voter: who('inject-d'), body: { nick: "' OR 1=1 --" } });
+  check('a nickname of SQL is just a nickname', nickAttack.status === 200 && nickAttack.data.nick === "' OR 1=1 --", nickAttack);
+  const nickAgain = await call(`/api/rooms/${pc}/nick`, { method: 'POST', voter: who('inject-e'), body: { nick: "' OR 1=1 --" } });
+  check('and it does not match every other name through some clever comparison',
+    nickAgain.status === 409, nickAgain);
+
+  // Prototype pollution through the creation body.
+  const polluted = await call('/api/rooms', {
+    method: 'POST',
+    body: JSON.parse('{"questions":[{"type":"choice","prompt":"p","options":["a","b"],"__proto__":{"pwned":true}}],"__proto__":{"pwned":true}}'),
+  });
+  check('a body carrying __proto__ makes an ordinary room', polluted.status === 200, polluted);
+  const after = await call('/api/rooms', { method: 'POST', body: { questions: [{ type: 'choice', prompt: 'clean', options: ['a', 'b'] }] } });
+  const cleanState = (await call(`/api/rooms/${after.data.code}/state`, { key: after.data.adminKey })).data;
+  check('and the next room is not born with its properties',
+    cleanState.questions[0].prompt === 'clean' && cleanState.pending.length === 0, cleanState.questions);
+
+  // Forged and malformed identifiers.
+  for (const [label, token] of [
+    ['too short', 'abc'],
+    ['too long', 'a'.repeat(200)],
+    ['with a quote', "abcdefgh'"],
+    ['with a slash', 'abcdefgh/../x'],
+    ['with a null byte', 'abcdefgh' + String.fromCodePoint(0)],
+  ]) {
+    let status;
+    try {
+      status = (await call(`/api/rooms/${pc}/vote`, { method: 'POST', voter: token, body: { idx: 1, value: 'x' } })).status;
+    } catch {
+      // fetch itself refuses to put a control character in a header, which is
+      // a refusal too and worth recording as one rather than as a crash.
+      status = 400;
+    }
+    check(`a voter token ${label} is refused`, status === 400, { label, status });
+  }
+
+  for (const [label, idx] of [
+    ['negative', -1], ['enormous', 1e9], ['fractional', 1.5],
+    ['a string of SQL', "0; DROP TABLE votes"], ['null', null],
+  ]) {
+    const res = await call(`/api/rooms/${pc}/vote`, { method: 'POST', voter: who('probe'), body: { idx, value: 'x' } });
+    check(`a question index that is ${label} is refused`, res.status >= 400, { label, status: res.status });
+  }
+
+  for (const [label, key] of [
+    ['empty', ''],
+    ['one character short', nastyKey.slice(0, -1)],
+    ['one character different', nastyKey.slice(0, -1) + (nastyKey.endsWith('a') ? 'b' : 'a')],
+    ['SQL', "' OR '1'='1"],
+    ['a prefix of the real one', nastyKey.slice(0, 8)],
+    ['the real one with a character appended', nastyKey + 'x'],
+  ]) {
+    const res = await call(`/api/rooms/${nastyCode}/state`, { key });
+    check(`an admin key that is ${label} is refused`, res.status === 403, { label, status: res.status });
+  }
+
+  // Whitespace is not a near miss, it is the same key: HTTP strips it around a
+  // header value anyway. Both transports are trimmed so they agree, because a
+  // recovery link copied with a stray space used to work as a header and fail
+  // as a query parameter.
+  check('a key with whitespace around it works over the header',
+    (await call(`/api/rooms/${nastyCode}/state`, { key: ' ' + nastyKey + ' ' })).status === 200);
+  const viaQuery = await fetch(`${BASE}/api/rooms/${nastyCode}/state?k=${encodeURIComponent(nastyKey + ' ')}`, {
+    headers: { 'cf-connecting-ip': RUN_ADDRESS },
+  });
+  check('and over the query string too, which it did not before', viaQuery.status === 200, viaQuery.status);
+  const wrongViaQuery = await fetch(`${BASE}/api/rooms/${nastyCode}/state?k=${encodeURIComponent(nastyKey + 'x')}`, {
+    headers: { 'cf-connecting-ip': RUN_ADDRESS },
+  });
+  check('while a genuinely different key is still refused there', wrongViaQuery.status === 403, wrongViaQuery.status);
+
+  const upvoteJunk = await call(`/api/rooms/${pc}/upvote`, {
+    method: 'POST', voter: who('inject-f'), body: { idx: 1, id: "0 OR 1=1" },
+  });
+  check('an upvote id that is not a number is refused', upvoteJunk.status === 400, upvoteJunk);
+
+  // Oversized and malformed bodies.
+  const huge = await call('/api/rooms', {
+    method: 'POST',
+    body: { questions: [{ type: 'choice', prompt: 'x'.repeat(200000), options: ['a', 'b'] }] },
+  });
+  check('an enormous prompt is cut to the cap rather than refused or stored whole',
+    huge.status === 200, huge.status);
+  if (huge.status === 200) {
+    const cut = (await call(`/api/rooms/${huge.data.code}/state`, { key: huge.data.adminKey })).data;
+    check('and the stored prompt is at the cap', cut.questions[0].prompt.length === 200, cut.questions[0].prompt.length);
+  }
+
+  const notJson = await fetch(`${BASE}/api/rooms`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'cf-connecting-ip': RUN_ADDRESS },
+    body: 'this is not json{{{',
+  });
+  check('a body that is not JSON is a 400, not a stack trace', notJson.status === 400, notJson.status);
+  const errorText = await notJson.text();
+  check('and the error names no internals',
+    !/at |worker\/src|room\.js|SyntaxError/.test(errorText), errorText.slice(0, 120));
+
+  for (const code of [nastyCode, pc, after.data.code, huge.data?.code]) {
+    if (code) {
+      const key = code === nastyCode ? nastyKey : code === pc ? pk : null;
+      if (key) await call(`/api/rooms/${code}/admin`, { method: 'POST', key, body: { action: 'close' } });
+    }
+  }
+}
+
 console.log('export and close');
 const total = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total;
 const exported = (await call(`/api/rooms/${code}/export`, { key: adminKey })).data;

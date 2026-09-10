@@ -60,6 +60,28 @@ All notable changes to this project are documented here. The format follows
 
 ### Security
 
+- A security pass, done by attacking it rather than by reading it. Adds
+  `tests/security.test.mjs` and an injection section to both the live and the
+  browser suites: markup and SQL payloads through every text path, forged and
+  malformed voter tokens, admin keys that are near misses, question indices that
+  are negative, enormous, fractional or SQL, prototype pollution through the
+  creation body and through an imported question set, oversized prompts, and a
+  body that is not JSON.
+- **A word-cloud entry made only of punctuation was accepted and then silently
+  dropped.** It folds to an empty merge key, so the tally discarded it while the
+  person who sent it saw a success. It is refused at the point of writing now.
+- **The admin key is trimmed on both transports.** HTTP strips whitespace around
+  a header value but a query string keeps it, so a recovery link copied with a
+  stray space worked one way and failed the other. Whitespace can never be part
+  of a key, so trimming gives nothing away.
+- Recorded rather than fixed, because it is not a flaw: markup payloads are
+  stored and returned exactly as typed, and never escaped. The defence is that
+  nothing is ever parsed as markup, and the tests assert that rather than
+  asserting escaping, which would have gone green with the real defence removed.
+  Planting a real `innerHTML` in the presenter view turns the browser checks
+  red; with it planted, the Content-Security-Policy still stopped the injected
+  handler from running, which is the second layer doing its job.
+
 - **Right answers no longer leave the room object before the reveal.** They were
   being sent to every phone inside the question spec and merely not drawn, which
   put the answer one network panel away from anyone in the room. The test that

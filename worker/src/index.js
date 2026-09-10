@@ -156,7 +156,15 @@ function voterOf(request) {
 function keyOf(request, url) {
   // Header for fetches, query string for the WebSocket, which cannot carry
   // custom headers from a browser.
-  return request.headers.get('x-pollen-key') || url.searchParams.get('k') || '';
+  //
+  // Trimmed, so the two transports behave the same. HTTP already strips
+  // whitespace around a header value, which meant a key with a trailing space
+  // worked as a header and was refused as a query parameter: a recovery link
+  // copied out of a message with a stray space would fail for no reason the
+  // presenter could see. Whitespace can never be part of a key, so trimming
+  // gives away nothing.
+  const raw = request.headers.get('x-pollen-key') || url.searchParams.get('k') || '';
+  return raw.trim();
 }
 
 async function forward(room, op, params, request) {

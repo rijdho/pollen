@@ -3,6 +3,9 @@
 // parsed as HTML no matter what they typed.
 
 export function el(tag, props = {}, children = []) {
+  // Checked before anything is built, so it fails on the call rather than on
+  // the assignment, and so it can be tested without a DOM.
+  if ('html' in props) throw new Error('markup is never inserted');
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
     if (value === null || value === undefined || value === false) continue;
@@ -13,7 +16,6 @@ export function el(tag, props = {}, children = []) {
     // and the word cloud size themselves.
     else if (key === 'style' && typeof value === 'object') Object.assign(node.style, value);
     else if (key === 'text') node.textContent = value;
-    else if (key === 'html') throw new Error('markup is never inserted');
     else if (key.startsWith('on') && typeof value === 'function') {
       node.addEventListener(key.slice(2).toLowerCase(), value);
     } else if (key === 'dataset') {

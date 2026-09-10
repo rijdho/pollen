@@ -6,7 +6,7 @@
 // is a courtesy; this file is the boundary.
 
 import { LIMITS } from '../../public/js/shared/limits.js?v=1';
-import { sanitiseText, wordCount } from '../../public/js/shared/sanitize.js?v=1';
+import { sanitiseText, wordCount, cloudKey } from '../../public/js/shared/sanitize.js?v=1';
 import { tallyChoice, tallyScale, tallyCloud, tallyRank } from '../../public/js/shared/aggregate.js?v=1';
 
 const SCHEMA = `
@@ -384,6 +384,12 @@ export class Room {
   writeCloud(q, voter, value, now) {
     const text = sanitiseText(String(value ?? ''), LIMITS.cloud.maxChars);
     if (text === '') return { error: 'empty', status: 400 };
+    // An entry that folds to nothing is refused here rather than accepted and
+    // then dropped by the tally. "'--" is not empty, but the cloud merges on a
+    // key with edge punctuation stripped, so it would have been counted as a
+    // success and then never appeared, and the person who sent it would have
+    // had no way to know.
+    if (cloudKey(text) === '') return { error: 'empty', status: 400 };
     if (wordCount(text) > LIMITS.cloud.maxWords) return { error: 'too_many_words', status: 400 };
 
     const mine = this.sql.exec('SELECT seq FROM votes WHERE q = ? AND voter = ? ORDER BY seq',

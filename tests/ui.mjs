@@ -18,6 +18,16 @@ const BASE = process.env.POLLEN_BASE || 'http://127.0.0.1:8788';
 const out = [];
 const ok = (label, cond, detail) => (console.log(`${cond ? 'ok  ' : 'FAIL'} ${label}${cond ? '' : ' :: ' + JSON.stringify(detail)}`), out.push(`${cond ? 'ok  ' : 'FAIL'} ${label}${cond ? '' : ' :: ' + JSON.stringify(detail)}`));
 
+async function api(path, { method = 'GET', body, key, who } = {}) {
+  const headers = {};
+  if (body) headers['content-type'] = 'application/json';
+  if (key) headers['x-pollen-key'] = key;
+  if (who) headers['x-pollen-voter'] = who;
+  const res = await fetch(BASE + path, { method, headers, body: body && JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${method} ${path} answered ${res.status}`);
+  return res.json();
+}
+
 const browser = await puppeteer.launch({ headless: 'new' });
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 900 });
@@ -365,6 +375,75 @@ await noStrayNothing('the phone', phone);
 }
 await fresh.close();
 
+// A payload, in a browser, on the screen it would be projected on. This is the
+// only place that can prove the page renders it as characters rather than as an
+// element: everything before it proves the server stores it faithfully, which
+// is necessary and not sufficient.
+console.log('');
+{
+  const PAYLOAD = '<img src=x onerror="window.__pwned = true">';
+  const attacked = await api('/api/rooms', {
+    method: 'POST',
+    body: { questions: [{ type: 'cloud', prompt: PAYLOAD }] },
+  });
+  await api(`/api/rooms/${attacked.code}/admin`, {
+    method: 'POST', key: attacked.adminKey,
+    body: { action: 'goto', payload: { idx: 0 } },
+  });
+  await api(`/api/rooms/${attacked.code}/vote`, {
+    method: 'POST', who: 'payload00000', body: { idx: 0, value: PAYLOAD.slice(0, 30) },
+  });
+
+  const victim = await browser.newPage();
+  const victimErrors = [];
+  victim.on('pageerror', (e) => victimErrors.push(String(e.message)));
+  await victim.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await victim.evaluate((c, k) => {
+    localStorage.setItem('pollen.rooms', JSON.stringify([{ code: c, adminKey: k, expiresAt: Date.now() + 3600e3 }]));
+  }, attacked.code, attacked.adminKey);
+  await victim.goto(`${BASE}/p/${attacked.code}`, { waitUntil: 'domcontentloaded' });
+  await victim.waitForSelector('.stage-prompt', { timeout: 8000 });
+
+  const result = await victim.evaluate(async (payload) => {
+    await new Promise((r) => setTimeout(r, 800));
+    return {
+      pwned: window.__pwned === true,
+      // Only what this payload would have created. Counting every <script>
+      // counted the page's own two and made this fail while proving nothing.
+      injectedElements: document.querySelectorAll('img[src="x"], iframe, [onerror], [onload]').length,
+      promptShowsCharacters: document.querySelector('.stage-prompt').textContent === payload,
+      cloudWords: [...document.querySelectorAll('.cloud-svg text')].map((t) => t.textContent),
+    };
+  }, PAYLOAD);
+
+  ok('a markup payload never runs on the projected screen', result.pwned === false, result);
+  ok('and creates no element of its own', result.injectedElements === 0, result);
+  ok('it is read out as the characters that were typed', result.promptShowsCharacters, result);
+  ok('including inside the word cloud, which draws text into an SVG',
+    result.cloudWords.length === 1 && result.cloudWords[0].includes('<img'), result.cloudWords);
+  ok('and the page raised no error doing it', victimErrors.length === 0, victimErrors);
+
+  const phoneVictim = await browser.newPage();
+  await phoneVictim.goto(`${BASE}/${attacked.code}`, { waitUntil: 'domcontentloaded' });
+  await phoneVictim.waitForSelector('.join-stage', { timeout: 8000 });
+  const onPhone = await phoneVictim.evaluate(async (payload) => {
+    await new Promise((r) => setTimeout(r, 600));
+    return {
+      pwned: window.__pwned === true,
+      injected: document.querySelectorAll('img[src="x"], iframe, [onerror], [onload]').length,
+      shows: document.querySelector('.card-title')?.textContent === payload,
+    };
+  }, PAYLOAD);
+  ok('nor on the phone', onPhone.pwned === false && onPhone.injected === 0, onPhone);
+  ok('where it is also read out as characters', onPhone.shows, onPhone);
+
+  await victim.close();
+  await phoneVictim.close();
+  await api(`/api/rooms/${attacked.code}/admin`, {
+    method: 'POST', key: attacked.adminKey, body: { action: 'close' },
+  });
+}
+
 // The recovery link: a second device, with nothing in its storage, claiming the
 // room from the fragment alone.
 console.log('');
@@ -378,13 +457,13 @@ const recovered = await second.evaluate(async () => {
     controls: document.querySelectorAll('.controls .btn').length,
     hash: location.hash,
     path: location.pathname,
-    stored: JSON.parse(localStorage.getItem('pollen.rooms') || '[]').length,
+    storedCodes: JSON.parse(localStorage.getItem('pollen.rooms') || '[]').map((r) => r.code),
   };
 });
 ok('a recovery link opens the room on a device that had nothing',
   recovered.code === room.code && recovered.controls > 0, recovered);
 ok('the key is claimed and taken out of the address bar',
-  recovered.hash === '' && recovered.stored === 1, recovered);
+  recovered.hash === '' && recovered.storedCodes.includes(room.code), recovered);
 
 // An isolated context, because a second tab in the same browser shares local
 // storage and would already be holding the key claimed above. That mistake
