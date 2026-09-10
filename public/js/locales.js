@@ -13,9 +13,6 @@ export const STRINGS = {
     'brand.tagline': 'Live questions for a room',
     'nav.language': 'Language',
     'nav.theme': 'Theme',
-    'theme.system': 'System',
-    'theme.light': 'Light',
-    'theme.dark': 'Dark',
 
     'home.lede': 'Ask a room a question and watch the answers arrive. No accounts, no app to install, nothing stored after the session ends.',
     'home.create': 'Create a room',
@@ -185,9 +182,6 @@ export const STRINGS = {
     'brand.tagline': 'Live-Fragen für einen Raum',
     'nav.language': 'Sprache',
     'nav.theme': 'Darstellung',
-    'theme.system': 'System',
-    'theme.light': 'Hell',
-    'theme.dark': 'Dunkel',
 
     'home.lede': 'Stellen Sie einem Raum eine Frage und sehen Sie die Antworten eintreffen. Keine Konten, keine App, nichts bleibt nach der Sitzung gespeichert.',
     'home.create': 'Raum eröffnen',
@@ -357,9 +351,6 @@ export const STRINGS = {
     'brand.tagline': 'Preguntas en vivo para una sala',
     'nav.language': 'Idioma',
     'nav.theme': 'Tema',
-    'theme.system': 'Sistema',
-    'theme.light': 'Claro',
-    'theme.dark': 'Oscuro',
 
     'home.lede': 'Haga una pregunta a una sala y vea llegar las respuestas. Sin cuentas, sin instalar nada, sin guardar nada cuando termina la sesión.',
     'home.create': 'Crear una sala',

@@ -52,7 +52,7 @@ export function typeLabel(type) {
  */
 export function typePicker(q, onChange) {
   return el('select', {
-    class: 'lang q-type', 'aria-label': t('editor.type'),
+    class: 'q-type', 'aria-label': t('editor.type'),
     onChange: (event) => onChange(event.target.value),
   }, QUESTION_TYPES.map((type) => el('option', {
     value: type, selected: type === q.type, text: typeLabel(type),

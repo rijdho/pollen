@@ -84,6 +84,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Corners are less rounded**: 8px on cards and 4px on controls, where the rest
+  of the family uses 14px and 9px, and the bars follow that instead of being
+  pills. Every other token is unchanged. A fully austere variant was built as a
+  prototype, looked at and rejected as too far; this is what survived of it.
+- **Language and theme now look like the rest of the family.** Language is a row
+  of mono codes with the current one marked, and theme is a single icon button
+  that flips light and dark, copied from `orcid-finder` and `fair-repo-audit`
+  rather than approximated. They were two native dropdowns, which was the one
+  place this tool did not look like its siblings. The three-way theme choice
+  goes with them: the family's control is a toggle.
 - **A question's type is now a control, not a label.** The editor opened with a
   multiple choice already placed and no way to change it, so the first question
   was whatever the editor happened to start with unless you deleted it and added

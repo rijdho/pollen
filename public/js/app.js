@@ -96,35 +96,61 @@ function showEditor(deck = null) {
 }
 
 function buildChrome() {
-  const picker = el('select', {
-    class: 'lang', 'aria-label': t('nav.language'),
-    onChange: (event) => {
-      setLocale(event.target.value);
-      route();
+  // The same two controls the rest of the family carries, built the same way:
+  // language as a row of mono codes with aria-current on the active one, and
+  // theme as a single icon button that flips light and dark. They were a pair
+  // of native <select> menus here, which is the one place this tool did not
+  // look like its siblings.
+  const langs = el('nav', { class: 'langs', 'aria-label': t('nav.language') },
+    LOCALES.map((code) => el('button', {
+      type: 'button',
+      'data-code': code,
+      'aria-current': code === locale() ? 'true' : 'false',
+      title: LOCALE_NAMES[code],
+      text: code.toUpperCase(),
+      onClick: () => {
+        setLocale(code);
+        buildChrome();
+        route();
+      },
+    })));
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const moon = document.createElementNS(NS, 'svg');
+  moon.setAttribute('viewBox', '0 0 24 24');
+  moon.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('d', 'M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z');
+  moon.append(path);
+
+  const theme = el('button', {
+    class: 'icon-btn', type: 'button', id: 'theme',
+    'aria-label': t('nav.theme'), title: t('nav.theme'),
+    onClick: () => {
+      // Whatever is stamped on <html> wins; with nothing stamped yet, the OS
+      // preference is what the visitor is currently looking at.
+      const dark = document.documentElement.dataset.theme
+        ? document.documentElement.dataset.theme === 'dark'
+        : matchMedia('(prefers-color-scheme: dark)').matches;
+      const next = dark ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem('pollen.theme', next); } catch { /* storage off */ }
     },
-  }, LOCALES.map((code) => el('option', { value: code, selected: code === locale(), text: LOCALE_NAMES[code] })));
+  }, [moon]);
 
   document.getElementById('brand-name').textContent = t('brand.name');
   document.getElementById('brand-tagline').textContent = t('brand.tagline');
-  document.getElementById('brand-link').addEventListener('click', (event) => {
-    event.preventDefault();
-    go('/');
-  });
-  const themes = ['system', 'light', 'dark'];
-  let theme = 'system';
-  try { theme = localStorage.getItem('pollen.theme') || 'system'; } catch { /* storage off */ }
-  const themePicker = el('select', {
-    class: 'lang', 'aria-label': t('nav.theme'),
-    onChange: (event) => {
-      const chosen = event.target.value;
-      if (chosen === 'system') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', chosen);
-      try { localStorage.setItem('pollen.theme', chosen); } catch { /* storage off */ }
-    },
-  }, themes.map((code) => el('option', { value: code, selected: code === theme, text: t('theme.' + code) })));
-
-  clear(document.getElementById('lang-slot'));
-  document.getElementById('lang-slot').append(picker, themePicker);
+  const link = document.getElementById('brand-link');
+  if (!link.dataset.wired) {
+    link.dataset.wired = 'true';
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      go('/');
+    });
+  }
+  const slot = document.getElementById('lang-slot');
+  clear(slot);
+  slot.append(langs, theme);
 }
 
 setLocale(detectLocale(), { persist: false });

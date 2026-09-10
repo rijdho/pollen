@@ -32,10 +32,14 @@
   --ink: #17151f;
   --ink-2: #52505e;
   --hairline: #e5e3ef;
+  /* 8/4 rather than the family's 14/9. A deliberate, recorded departure: this
+     is the only tool of the six that is read from the back of a room, and the
+     softer corner reads as an app where this wants to read as an instrument.
+     Everything else about the family is unchanged. */
   --track: var(--surface-3);
   --shadow: 0 1px 2px rgb(23 21 31 / 6%), 0 8px 24px rgb(23 21 31 / 5%);
-  --r: 14px;
-  --r-sm: 9px;
+  --r: 8px;
+  --r-sm: 4px;
   --disp: "Inter Variable", "Inter", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --body-f: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
@@ -137,9 +141,27 @@ a { color: var(--brand); }
 .brand { display: flex; align-items: baseline; gap: .6rem; text-decoration: none; color: inherit; }
 .brand-name { font-family: var(--mono); font-weight: 600; color: var(--brand); letter-spacing: .02em; }
 .brand-tagline { color: var(--ink-2); font-size: .875rem; }
-.head-tools { display: flex; gap: .5rem; }
+.head-tools { display: flex; align-items: center; gap: .75rem; }
 
-.lang {
+/* Language and theme, the same shape every other tool in the family uses. */
+.langs { display: flex; gap: 1px; font-family: var(--mono); font-size: 11.5px; }
+.langs button {
+  border: none; background: none; color: var(--ink-2);
+  padding: 5px 7px; border-radius: 6px; cursor: pointer;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .04em;
+}
+.langs button:hover { color: var(--ink); }
+.langs button[aria-current="true"] { color: var(--ink); background: var(--surface-2); font-weight: 600; }
+
+.icon-btn {
+  width: 34px; height: 34px; border-radius: var(--r-sm);
+  border: 1px solid var(--hairline); background: var(--surface);
+  display: grid; place-items: center; color: var(--ink-2); cursor: pointer;
+}
+.icon-btn:hover { color: var(--ink); border-color: var(--ink-2); }
+.icon-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+.q-type {
   font: inherit; font-size: .8125rem;
   color: var(--ink); background: var(--surface-2);
   border: 1px solid var(--hairline); border-radius: var(--r-sm);
@@ -297,9 +319,9 @@ a { color: var(--brand); }
 .bar-track {
   grid-column: 2 / -1;
   height: clamp(.5rem, 1.2vw, .8rem);
-  background: var(--track); border-radius: 999px; overflow: hidden;
+  background: var(--track); border-radius: var(--r-sm); overflow: hidden;
 }
-.bar-fill { height: 100%; background: var(--brand); border-radius: 999px; transition: width .4s ease; opacity: .55; }
+.bar-fill { height: 100%; background: var(--brand); border-radius: var(--r-sm); transition: width .4s ease; opacity: .55; }
 /* The leader is data, not chrome, so it may carry emphasis. */
 .bar-row.leading .bar-fill { opacity: 1; }
 .bar-row.leading .bar-key { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
@@ -509,9 +531,9 @@ a { color: var(--brand); }
 .rank-board-avg { font-family: var(--mono); font-size: .8125rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .rank-board-track {
   grid-column: 2 / -1; height: clamp(.4rem, 1vw, .7rem);
-  background: var(--track); border-radius: 999px; overflow: hidden;
+  background: var(--track); border-radius: var(--r-sm); overflow: hidden;
 }
-.rank-board-fill { display: block; height: 100%; background: var(--brand); border-radius: 999px; opacity: .55; transition: width .4s ease; }
+.rank-board-fill { display: block; height: 100%; background: var(--brand); border-radius: var(--r-sm); opacity: .55; transition: width .4s ease; }
 .rank-board-item.leading .rank-board-fill { opacity: 1; }
 .rank-board-item.leading .rank-board-label,
 .rank-board-item.leading .rank-board-avg { color: var(--brand); font-weight: 600; }
@@ -523,6 +545,6 @@ a { color: var(--brand); }
 .mini-bars li { display: grid; grid-template-columns: 1fr auto; gap: .2rem .75rem; }
 .mini-name { font-size: .9375rem; }
 .mini-value { font-family: var(--mono); font-size: .8125rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.mini-track { grid-column: 1 / -1; height: .4rem; background: var(--track); border-radius: 999px; overflow: hidden; }
-.mini-fill { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+.mini-track { grid-column: 1 / -1; height: .4rem; background: var(--track); border-radius: var(--r-sm); overflow: hidden; }
+.mini-fill { display: block; height: 100%; background: var(--brand); border-radius: var(--r-sm); }
 .mini-rank { margin: .5rem 0 0; padding-left: 1.2rem; font-size: .9375rem; }

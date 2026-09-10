@@ -14,7 +14,15 @@ Pushing results to the room, or letting phones poll, blows the free daily allowa
 a single workshop (the README has the arithmetic). If a change makes the room receive
 anything per-vote, it has changed the cost model, not just the feature.
 
-## Two departures from the family, both deliberate
+## Three departures from the family, all deliberate
+
+- **The corner radius is 8px / 4px, not the family's 14px / 9px**, and the bars follow it
+  rather than being pills. Every other token is identical to the other five tools; this is
+  the only value that differs, it was asked for, and it is recorded here so it does not
+  read as drift. A full austere variant was built as a prototype behind `?skin=austere` on
+  2026-09-10, looked at, judged too far, and deleted whole. Lowering the radius is what
+  survived of it. If the family ever moves, move this with it.
+
 
 - **The app is served by the Worker, not by GitHub Pages.** Static asset requests are free
   and unlimited, a navigation request does not invoke the script at all, and one origin

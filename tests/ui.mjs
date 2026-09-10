@@ -57,6 +57,42 @@ const built = await page.evaluate(async () => {
 ok('every question type is offered', built.types.length === 5, built.types);
 
 {
+  // The two chrome controls, in the shape the rest of the family uses: a row of
+  // language codes with aria-current on the active one, and one icon button
+  // that flips the theme. They were native <select> menus, which was the only
+  // place this tool did not look like its siblings.
+  const chrome = await page.evaluate(async () => {
+    const codes = [...document.querySelectorAll('.langs button')];
+    const before = {
+      codes: codes.map((b) => b.textContent),
+      current: codes.filter((b) => b.getAttribute('aria-current') === 'true').map((b) => b.textContent),
+      selects: document.querySelectorAll('.site-head select').length,
+      iconButtons: document.querySelectorAll('.icon-btn').length,
+    };
+    const wasDark = document.documentElement.dataset.theme === 'dark'
+      || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelector('.icon-btn').click();
+    await new Promise((r) => setTimeout(r, 150));
+    before.themeFlipped = (document.documentElement.dataset.theme === 'dark') !== wasDark;
+    document.querySelector('.icon-btn').click();
+    await new Promise((r) => setTimeout(r, 150));
+    return before;
+  });
+  ok('language is a row of codes, not a dropdown',
+    chrome.codes.join('') === 'ENDEES' && chrome.selects === 0, chrome);
+  ok('and exactly one of them is marked current', chrome.current.length === 1, chrome.current);
+  ok('theme is one icon button that flips light and dark',
+    chrome.iconButtons === 1 && chrome.themeFlipped, chrome);
+
+  const radius = await page.evaluate(() => ({
+    card: getComputedStyle(document.querySelector('.card')).borderRadius,
+    control: getComputedStyle(document.querySelector('.btn')).borderRadius,
+  }));
+  ok('corners are the lowered radius, not the family default',
+    radius.card === '8px' && radius.control === '4px', radius);
+}
+
+{
   // On a scratch question added for the purpose, then removed. Doing this to
   // question one wiped its right answer, because retype drops what the new
   // type has no meaning for, and every later check that needed a scoreboard
