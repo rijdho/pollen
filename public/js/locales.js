@@ -174,6 +174,7 @@ export const STRINGS = {
     'error.forbidden': 'This device is not the presenter for that room.',
 
     'footer.by': 'by',
+    'footer.cite': 'Cite this tool',
     'footer.privacy': 'No accounts, no cookies, no analytics.',
   },
 
@@ -343,6 +344,7 @@ export const STRINGS = {
     'error.forbidden': 'Dieses Gerät ist nicht die vortragende Person dieses Raums.',
 
     'footer.by': 'von',
+    'footer.cite': 'Dieses Werkzeug zitieren',
     'footer.privacy': 'Keine Konten, keine Cookies, keine Analyse.',
   },
 
@@ -512,6 +514,7 @@ export const STRINGS = {
     'error.forbidden': 'Este dispositivo no es el que presenta esa sala.',
 
     'footer.by': 'por',
+    'footer.cite': 'Citar esta herramienta',
     'footer.privacy': 'Sin cuentas, sin cookies, sin analítica.',
   },
 };

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.0.0] - 2026-09-10
 
+Version DOI: [10.5281/zenodo.22685894](https://doi.org/10.5281/zenodo.22685894)
+
 ### Added
 
 - The README explains what to do if you want the results stored somewhere

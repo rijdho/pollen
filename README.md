@@ -1,5 +1,7 @@
 # pollen
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22685893.svg)](https://doi.org/10.5281/zenodo.22685893)
+
 **Ask a room a question and watch the answers arrive, without anyone signing in to
 anything.**
 
@@ -382,3 +384,12 @@ licence keeps those terms for good.
 
 The QR encoder in `public/js/vendor/` is Kazuhiko Arase's, under MIT, with its notice
 intact.
+
+## Citation
+
+If you use this tool in teaching or in research, please cite it. The metadata is in
+`CITATION.cff`, and GitHub's "Cite this repository" button will format it for you.
+
+Archived on Zenodo: concept DOI [10.5281/zenodo.22685893](https://doi.org/10.5281/zenodo.22685893), which always
+resolves to the latest version. Cite that one; the version DOIs exist for pinning a
+particular snapshot and are listed in the changelog under their own release.

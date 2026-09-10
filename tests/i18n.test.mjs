@@ -84,7 +84,13 @@ test('every key the code asks for exists', () => {
 test('every key in the dictionary is reachable', () => {
   const unused = baseKeys.filter((key) => {
     if (ASSEMBLED.some((prefix) => key.startsWith(prefix))) return false;
-    return !CODE.includes(`'${key}'`) && !CODE.includes(`"${key}"`);
+    // Quoted in JavaScript, quoted in a data-i18n attribute, or after a colon
+    // in a data-i18n-attr pair like title:footer.cite, where the key carries no
+    // quotes of its own.
+    return !CODE.includes(`'${key}'`)
+      && !CODE.includes(`"${key}"`)
+      && !CODE.includes(`:${key}"`)
+      && !CODE.includes(`:${key};`);
   });
   assert.deepEqual(unused, [], 'these strings are translated three times and shown never');
 });
