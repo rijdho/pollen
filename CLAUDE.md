@@ -200,98 +200,56 @@ The QR fixture in `tests/fixtures/` was verified once by decoding it with an ind
 implementation (`zxing-cpp`), which read back the exact URL. **Regenerating it without
 decoding the new matrix would make that test vacuous.**
 
-## Where this is, 2026-09-09
+## Where this is, 2026-09-10
 
-Working, deployed and private. Eight commits on `main`, all pushed. The deployed files are
-byte-identical to the working tree (compared by hash, not by trusting the deploy log).
+Public, released, deployed and citable. All commits pushed. The deployed files are
+byte-identical to the working tree, compared by hash rather than by trusting a deploy log.
 
-    npm test        75 unit tests, no server needed
+    npm test        80 unit tests, no server needed
     npm run dev     wrangler on http://127.0.0.1:8788
-    npm run live    137 checks against the running Worker   (needs dev)
-    npm run ui      45 checks driving the pages in a browser (needs dev + Chrome)
-
-**`npm run ui` opens four rooms, and the tool's own creation limit is thirty an hour per
-address.** Eight runs in an hour exhausts it, and the suite now stops with a message saying
-so rather than a TypeError. Local Durable Object state lives in `.wrangler/state` and is
-disposable: deleting it and restarting `npm run dev` clears the throttle along with every
-local room.
+    npm run serve   the same tool on Node, no Cloudflare
+    npm run live    137 checks against a running server    (needs dev or serve)
+    npm run ui      45 checks driving the pages in a browser (needs a server + Chrome)
 
 `npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
 `npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first
-but not the other two; run all three before a release.
+but not the other two; run all three, against both platforms, before a release.
 
-What exists: multiple choice (optionally with a right answer, which turns it into a quiz
-with a scoreboard), rating scales, ranking, word clouds and audience questions with support
-votes. Countdowns timed by the server. Questions can be added to a live room. Saved question
-sets on the device, exportable as a file. Recovery links. Results as JSON or CSV. English,
-German and Spanish. Light and dark.
+**`npm run ui` opens four rooms, and the creation limit is thirty an hour per address.**
+Eight runs in an hour exhausts it and the suite stops with a message saying so. Local
+Durable Object state lives in `.wrangler/state` and is disposable: deleting it and
+restarting `npm run dev` clears the throttle along with every local room.
+
+What exists: five question types (multiple choice, rating scale, ranking, word cloud,
+audience questions with support votes), right answers and a scoreboard, server-timed
+countdowns, questions added to a live room, saved question sets exportable as a file,
+recovery links, results as JSON or CSV, an optional per-question tally on phones, English,
+German and Spanish, light and dark. It runs on Cloudflare and on Node from the same code.
+
+Live at `https://pollen.rijdho.org`. Concept DOI `10.5281/zenodo.22685893`, which is the
+one to cite and the one on the badge and in the page footer; version DOIs go in the
+CHANGELOG under their own release heading.
 
 ### Pick up here
 
 1. **Decide whether audience questions should also skip approval.** Word clouds no longer
    wait; audience questions still do, because they are whole sentences rather than one to
-   three words. That asymmetry was a judgement call, not an instruction, and it is one line
+   three words. That asymmetry is a judgement call, not an instruction, and it is one line
    in `prepareQuestion` plus the default in `qform.js` if it should go.
-2. **A full cloud drops its least common words.** They are in the download and the screen
-   says how many were left out, but the presenter cannot see them at all. A list behind a
-   disclosure, or a smaller minimum size before dropping, would both work.
-3. **The scoreboard has no speed bonus.** Doing it honestly means timing arrival at the
-   Durable Object, never trusting a time the phone reports.
+2. **A results webhook**, with everything it has to handle written down under "Worth
+   building next" below. It is the answer to "can I connect it to my own database".
+3. **A full cloud drops its least common words.** They are in the download and the screen
+   says how many were left out, but the presenter cannot see them at all.
+4. **The scoreboard has no speed bonus.** Doing it honestly means timing arrival at the
+   object, never trusting a time a phone reports.
+5. Add it to `rijdho.github.io/data/cv.json` under `experiments`, where BiblioHelp lives.
+   That was the last item of going public and it is still not done.
 
-### Before it goes public
-
-1. Re-run the leak sweep over the working tree **and the full object history**; commits have
-   been added since the last one. Run it in `bash` (in `zsh` the `while read` loop yields
-   nothing, which reads exactly like a clean repo) and do not call the loop variable `path`,
-   which `zsh` binds to `PATH` and empties mid-loop.
-2. Regenerate the screenshots against the deployed URL so they stop showing
-   `127.0.0.1:8788`: `POLLEN_BASE=https://pollen.rijdho.org npm run screenshots`. It opens
-   and then deletes one real room.
-3. Connect Zenodo (press **Sync now**; the list is cached), cut v1.0.0, then add the DOI
-   badge under the H1, `CITATION.cff`, and the README `## Citation` section last.
-4. Add it to `rijdho.github.io/data/cv.json` under `experiments`, where BiblioHelp lives.
-   Doing that earlier would publish its existence before the repo is public.
-
-Already done and not worth redoing: deployed and verified in a browser against the live URL
-(computed styles, the policy breached on purpose, no request to any other origin); the
-GitHub About block set with description, homepage and six topics; and one full-history leak
-sweep whose six hits were all read and all benign (the AGPL's own wording about passwords, a
-README sentence saying the room code is not a secret, and the `wrangler.toml` comment
-stating this Worker is never on the workers.dev namespace).
-
-### Worth building next
-
-- **A webhook for the results**, posted to a URL the presenter owns when the session ends
-  or the room expires. It is the answer to "can I connect it to my own database", it needs
-  no database, and it adds one binding, which `tests/selfhost.test.mjs` will flag: the
-  self-host instructions have to gain a step the same day.
-
-  Three things whoever builds it has to handle, written down now because they are easy to
-  miss later.
-
-  **It breaks three promises this tool makes on its own front page.** `home.lede` says
-  nothing is stored after the session ends, `home.about.body` says there is no third-party
-  request of any kind, and the README says both. A configured webhook makes all three false
-  for that room. Scope them ("unless you point it somewhere") or the tool lies about itself.
-
-  **A presenter-supplied URL is an SSRF surface.** The Worker would be making a request to
-  an address a stranger chose. Require `https:`, refuse loopback, link-local and private
-  ranges, do not follow redirects, cap the body, give it a short timeout, and never put the
-  admin key in it. The room code and the results are the whole payload.
-
-  **Where to point it, in the order that fits this tool.** Another Worker in the presenter's
-  own Cloudflare account, writing to R2, D1 or KV: same account they already have from
-  deploying this, no new party, about twenty lines. Then a self-hosted collector they
-  already run, n8n or Node-RED. Then a Google Apps Script web app writing to a Sheet, which
-  is the one a non-technical presenter can actually set up in ten minutes, at the cost of
-  the answers going to Google; the `doPost` shape is believed to work for a server-to-server
-  POST but has not been tried here. Hosted automation services (Zapier, Make, Pipedream) work
-  and should be named last with the reason: they put a company between a room and its own
-  answers, which is the thing this tool exists to avoid.
-- A full cloud drops its least common words. They are in the download and the screen says
-  how many, but the presenter cannot see them at all.
-- The scoreboard has no speed bonus. Doing it honestly means timing arrival at the object,
-  never trusting a time a phone reports.
+Done and not worth redoing: the leak sweep over the working tree and the full object
+history, whose only hits in the entire history are the AGPL's own wording about passwords,
+a README sentence saying the room code is not a secret, and a `.gitignore` line; the GitHub
+About block; screenshots against the deployed URL; and the browser verification of the
+policy, done by breaching it.
 
 ### One thing that is not this repo's to fix
 

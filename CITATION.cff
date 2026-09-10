@@ -11,8 +11,10 @@ abstract: >-
   Runs as a single Cloudflare Worker with one Durable Object per room, which is
   both the storage and the point every vote passes through; a room deletes
   itself twelve hours after it opens. No login, no cookie, no analytics and no
-  third-party request of any kind. Multilingual (EN/DE/ES), and deployable to
-  anyone's own Cloudflare account with nothing to configure.
+  third-party request of any kind. Multilingual (EN/DE/ES). It runs on
+  Cloudflare or on any machine with Node from the same code, deployable to
+  anyone's own account or server with nothing to configure and no database to
+  connect.
 type: software
 authors:
   - family-names: "Hartley Belmar"
@@ -30,7 +32,7 @@ identifiers:
 repository-code: "https://github.com/rijdho/pollen"
 url: "https://pollen.rijdho.org"
 license: AGPL-3.0-or-later
-version: 1.0.0
+version: 1.1.0
 date-released: "2026-09-10"
 keywords:
   - audience response

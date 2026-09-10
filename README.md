@@ -241,10 +241,10 @@ their browser's local storage and nowhere else.
 ## Tests
 
 ```bash
-npm test          # 75 unit tests, no dependencies, Node's own runner
+npm test          # 80 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
 npm run live      # 137 end-to-end checks against the running Worker
-npm run ui        # 42 checks driving the real pages in a real browser
+npm run ui        # 45 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
