@@ -263,10 +263,10 @@ CHANGELOG under their own release heading.
 4. **The scoreboard has no speed bonus.** Doing it honestly means timing arrival at the
    object, never trusting a time a phone reports.
 
-**There is unreleased work on `main`**: the Node server, the Spanish and German rewrite and
-the documentation. v1.1.0 is the last tag. Cut v1.2.0 when it is worth a DOI, remembering
-that the concept DOI does not change and that the version one replaces its predecessor in
-`CITATION.cff` rather than accumulating.
+**Nothing is unreleased.** v1.2.0 is the last tag and everything on `main` is in it. When
+the next one is worth a DOI: the concept DOI never changes, and the version DOI replaces
+its predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
+version DOIs live in the CHANGELOG under their own release heading.
 
 Done and not worth redoing: the leak sweep over the working tree and the full object
 history, whose only hits in the entire history are the AGPL's own wording about passwords,
