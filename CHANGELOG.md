@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.2.0] - 2026-09-10
 
+Version DOI: [10.5281/zenodo.22690076](https://doi.org/10.5281/zenodo.22690076)
+
 ### Changed
 
 - **The Spanish and German were translated from the English rather than
