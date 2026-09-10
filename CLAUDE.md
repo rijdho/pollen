@@ -225,7 +225,7 @@ decoding the new matrix would make that test vacuous.**
 Public, released, deployed and citable. All commits pushed. The deployed files are
 byte-identical to the working tree, compared by hash rather than by trusting a deploy log.
 
-    npm test        80 unit tests, no server needed
+    npm test        83 unit tests, no server needed
     npm run dev     wrangler on http://127.0.0.1:8788
     npm run serve   the same tool on Node, no Cloudflare
     npm run live    137 checks against a running server    (needs dev or serve)
@@ -262,14 +262,33 @@ CHANGELOG under their own release heading.
    says how many were left out, but the presenter cannot see them at all.
 4. **The scoreboard has no speed bonus.** Doing it honestly means timing arrival at the
    object, never trusting a time a phone reports.
-5. Add it to `rijdho.github.io/data/cv.json` under `experiments`, where BiblioHelp lives.
-   That was the last item of going public and it is still not done.
+
+**There is unreleased work on `main`**: the Node server, the Spanish and German rewrite and
+the documentation. v1.1.0 is the last tag. Cut v1.2.0 when it is worth a DOI, remembering
+that the concept DOI does not change and that the version one replaces its predecessor in
+`CITATION.cff` rather than accumulating.
 
 Done and not worth redoing: the leak sweep over the working tree and the full object
 history, whose only hits in the entire history are the AGPL's own wording about passwords,
 a README sentence saying the room code is not a secret, and a `.gitignore` line; the GitHub
-About block; screenshots against the deployed URL; and the browser verification of the
-policy, done by breaching it.
+About block; screenshots against the deployed URL; the browser verification of the policy,
+done by breaching it; and the entry in `rijdho.github.io/data/cv.json` under `experiments`,
+added on 2026-09-10 with the concept DOI.
+
+## The Spanish and German are written, not translated
+
+Every tool in this family writes both without addressing the reader: infinitives,
+impersonal `se`, passives, noun phrases. `orcid-finder` says "Encuentra las cuentas ORCID
+que declaran una institución" and "Anstellungsdatensätze werden gelesen"; `coara` has a
+test named "translated planText stays free of second-person address".
+
+This catalogue was originally produced by translating the English sentence by sentence,
+which gave sixteen Spanish strings in the usted imperative, twenty-nine German ones with
+Sie, Ihr or Bitte, and calques like "vea llegar las respuestas" and "el borde de la red".
+Rewritten on 2026-09-10, and `tests/i18n.test.mjs` fails if either form comes back. The
+English does address the reader, on purpose, because it is the original and not a
+translation of anyone's grammar; a third test records that so the first two do not look
+like a double standard.
 
 ### One thing that is not this repo's to fix
 

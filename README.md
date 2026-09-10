@@ -241,7 +241,7 @@ their browser's local storage and nowhere else.
 ## Tests
 
 ```bash
-npm test          # 80 unit tests, no dependencies, Node's own runner
+npm test          # 83 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
 npm run live      # 137 end-to-end checks against the running Worker
 npm run ui        # 45 checks driving the real pages in a real browser
