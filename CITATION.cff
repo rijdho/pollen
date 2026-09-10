@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this tool, please cite it as below."
+title: "pollen"
+abstract: >-
+  Live audience questions for a talk or a class, with no accounts and nothing
+  kept afterwards. Multiple choice, rating scales, rankings, word clouds and
+  audience questions with support votes; any choice question can carry a right
+  answer, which adds a scoreboard, and any question can be timed by the server.
+  The room joins by typing a six-character code or scanning a QR code and
+  answers on their phones, while the results build on the projected screen.
+  Runs as a single Cloudflare Worker with one Durable Object per room, which is
+  both the storage and the point every vote passes through; a room deletes
+  itself twelve hours after it opens. No login, no cookie, no analytics and no
+  third-party request of any kind. Multilingual (EN/DE/ES), and deployable to
+  anyone's own Cloudflare account with nothing to configure.
+type: software
+authors:
+  - family-names: "Hartley Belmar"
+    given-names: "Ricardo"
+    alias: rijdho
+    orcid: "https://orcid.org/0000-0001-5058-9309"
+repository-code: "https://github.com/rijdho/pollen"
+url: "https://pollen.rijdho.org"
+license: AGPL-3.0-or-later
+version: 1.0.0
+date-released: "2026-09-10"
+keywords:
+  - audience response
+  - live polling
+  - classroom technology
+  - Cloudflare Workers
+  - Durable Objects
+  - privacy by design

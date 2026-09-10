@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-09-10
 
 ### Added
 
@@ -209,5 +209,6 @@ All notable changes to this project are documented here. The format follows
 
 ### Notes
 
-Not released yet: no tag, no Zenodo record and therefore no DOI. The citation
-section and the DOI badge arrive with v1.0.0, per the repository conventions.
+First public release. The DOI badge, the top-level `doi:` in `CITATION.cff` and
+the README's Citation section land in the commit after this one, because Zenodo
+does not mint a version DOI until it has processed the GitHub release.
