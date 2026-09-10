@@ -10,7 +10,7 @@ import { LIMITS } from '../shared/limits.js?v=1';
 export const QUESTION_TYPES = ['choice', 'scale', 'rank', 'cloud', 'qa'];
 
 export function blankQuestion(type) {
-  if (type === 'choice') return { type, prompt: '', options: ['', ''], multiple: false, correct: [], seconds: 0 };
+  if (type === 'choice') return { type, prompt: '', options: ['', ''], multiple: false, correct: [], seconds: 0, chart: 'bars' };
   if (type === 'scale') return { type, prompt: '', steps: 5, labels: { min: '', max: '' } };
   if (type === 'qa') return { type, prompt: '', moderation: true };
   if (type === 'rank') return { type, prompt: '', options: ['', '', ''], seconds: 0, showResults: false };
@@ -177,12 +177,32 @@ function choiceFields(q) {
     box.append(
       el('p', { class: 'hint', text: t('editor.correctHint') }),
       checkbox(t('editor.multiple'), q.multiple, (on) => { q.multiple = on; }),
+      chartField(q),
       timerField(q),
       shareResults(q),
     );
   };
   redraw();
   return box;
+}
+
+/**
+ * How the projector draws the answers. Bars are the default and stay the
+ * recommendation: a donut and a grid of dots look better in a screenshot and
+ * worse on a wall, where reading a length beats reading an angle.
+ */
+function chartField(q) {
+  const picker = el('select', {
+    class: 'q-type', 'aria-label': t('editor.chart'),
+    onChange: (event) => { q.chart = event.target.value; },
+  }, ['bars', 'donut', 'dots'].map((kind) => el('option', {
+    value: kind, selected: (q.chart || 'bars') === kind, text: t('editor.chart_' + kind),
+  })));
+  return el('div', { class: 'q-field' }, [
+    el('label', { class: 'field-label', text: t('editor.chart') }),
+    picker,
+    el('p', { class: 'hint', text: t('editor.chartHint') }),
+  ]);
 }
 
 /** Seconds to answer, or none. Shared by every type that can be timed. */

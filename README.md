@@ -73,7 +73,15 @@ and 3 answers, the tallest picked out in solid violet, and a black dashed line c
 at 3.9.](docs/presenter-scale.png)
 
 The presenter moves the room from one question to the next, can stop and reopen answers,
-clear a question, download the results as JSON, or end the session and delete everything.
+clear a question, download the results as JSON or CSV, or end the session and delete
+everything.
+
+**On the projected screen**, the join block collapses to a single line once the room has
+joined, which gives back the quarter of the height the code and the QR were holding, and a
+full-screen mode drops this page's own header, footer and tools as well as the browser's,
+fading the controls out until the mouse moves. A multiple choice can be drawn as bars, as a
+donut or as one dot per answer; bars stay the default and the setting says why, because
+comparing a length is easier than comparing an angle from the back of a room.
 
 Results stay on the projector by default. A question can be set to show them on the phones
 as well, and then each person sees the results on their own device once they have answered.
@@ -244,7 +252,7 @@ their browser's local storage and nowhere else.
 npm test          # 83 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
 npm run live      # 137 end-to-end checks against the running Worker
-npm run ui        # 45 checks driving the real pages in a real browser
+npm run ui        # 54 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages

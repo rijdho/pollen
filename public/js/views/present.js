@@ -63,11 +63,41 @@ export function renderPresent(root, { code, adminKey, onHome }) {
 
   const adder = el('details', { class: 'adder' });
 
+  // Collapsed, the join block is one line instead of a quarter of the screen.
+  // The QR is worth its space for the first minute and nothing after it, and at
+  // fifteen metres that space is the difference between reading the bars and
+  // guessing them.
+  let joined = false;
+  const head = el('header', { class: 'present-head' });
+  const joinToggle = el('button', {
+    class: 'btn btn-quiet join-toggle', type: 'button',
+    onClick: () => { joined = !joined; drawHead(); },
+  });
+
+  function drawHead() {
+    clear(head);
+    head.className = joined ? 'present-head is-collapsed' : 'present-head';
+    joinToggle.textContent = joined ? '▾' : '▴';
+    joinToggle.title = t(joined ? 'present.expandJoin' : 'present.collapseJoin');
+    joinToggle.setAttribute('aria-label', joinToggle.title);
+    joinToggle.setAttribute('aria-expanded', joined ? 'false' : 'true');
+    appendAll(head, joined
+      ? [
+        el('span', { class: 'join-code-small', text: code }),
+        el('span', { class: 'join-url-small', text: joinUrl.replace(/^https?:\/\//, '') }),
+        el('div', { class: 'present-meta' }, [voters, countdown]),
+        joinToggle,
+      ]
+      : [
+        link, qrBox,
+        el('div', { class: 'present-meta' }, [voters, expiry, countdown]),
+        joinToggle,
+      ]);
+  }
+  drawHead();
+
   appendAll(root, [
-    el('header', { class: 'present-head' }, [
-      link, qrBox,
-      el('div', { class: 'present-meta' }, [voters, expiry, countdown]),
-    ]),
+    head,
     stage,
     scores,
     queue,
@@ -75,6 +105,49 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     el('div', { class: 'present-tools' }, [adder, recovery]),
     message,
   ]);
+
+  /**
+   * Presentation mode. Full screen removes the browser's own chrome, and
+   * data-presenting removes this page's: the site header, the footer and the
+   * tools, with the controls fading out until the mouse moves. What is left is
+   * the question and the answers, which is what the room is looking at.
+   */
+  let idleTimer = null;
+  function setPresenting(on) {
+    document.body.dataset.presenting = on ? 'true' : 'false';
+    fullscreenButton.textContent = t(on ? 'present.exitFullscreen' : 'present.fullscreen');
+    clearTimeout(idleTimer);
+    if (on) idle();
+    else document.body.dataset.idle = 'false';
+  }
+
+  function idle() {
+    document.body.dataset.idle = 'false';
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      if (document.body.dataset.presenting === 'true') document.body.dataset.idle = 'true';
+    }, 3000);
+  }
+
+  const onMove = () => { if (document.body.dataset.presenting === 'true') idle(); };
+  const onFullscreenChange = () => setPresenting(Boolean(document.fullscreenElement));
+  addEventListener('mousemove', onMove);
+  addEventListener('keydown', onMove);
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+
+  const fullscreenButton = el('button', {
+    class: 'btn', type: 'button', text: t('present.fullscreen'),
+    onClick: async () => {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+      } catch {
+        // Some browsers refuse without a user gesture they recognise, and a
+        // refused request is not worth an error on a projected screen.
+        status(message, t('present.fullscreen'), 'warn');
+      }
+    },
+  });
 
   function secondsLeft() {
     const seconds = state?.question?.spec?.seconds || 0;
@@ -224,10 +297,99 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       || (data.type === 'cloud' && data.items.length === 0)) {
       return el('p', { class: 'stage-idle', text: t('present.noAnswers') });
     }
-    if (data.type === 'choice') return choiceChart(question, data);
+    if (data.type === 'choice') {
+      const kind = question.spec.chart || 'bars';
+      if (kind === 'donut') return donutChart(question, data);
+      if (kind === 'dots') return dotsChart(question, data);
+      return choiceChart(question, data);
+    }
     if (data.type === 'scale') return scaleChart(question, data);
     if (data.type === 'rank') return rankChart(data);
     return cloudChart(data);
+  }
+
+  /**
+   * A ramp of the brand rather than eight hues, because the letter is what
+   * identifies a slice on a wall and a colour legend is one more thing to read
+   * at fifteen metres. The gaps between segments do the separating.
+   */
+  function shade(i, total) {
+    return (1 - (i / Math.max(1, total - 1)) * 0.62).toFixed(2);
+  }
+
+  function donutChart(question, data) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 42 42');
+    svg.setAttribute('class', 'donut-svg');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', data.options
+      .map((label, i) => `${label}: ${data.percentages[i]}%`).join(', '));
+
+    const R = 15.9155; // circumference 100, so a percentage is a dash length
+    const GAP = 0.8;
+    let offset = 25; // start at twelve o'clock
+    data.percentages.forEach((pct, i) => {
+      if (pct <= 0) return;
+      const ring = document.createElementNS(NS, 'circle');
+      ring.setAttribute('cx', '21');
+      ring.setAttribute('cy', '21');
+      ring.setAttribute('r', String(R));
+      ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke', 'currentColor');
+      ring.setAttribute('stroke-width', '7');
+      ring.setAttribute('stroke-opacity', shade(i, data.options.length));
+      ring.setAttribute('stroke-dasharray', `${Math.max(0, pct - GAP)} ${100 - Math.max(0, pct - GAP)}`);
+      ring.setAttribute('stroke-dashoffset', String(offset));
+      offset -= pct;
+      svg.append(ring);
+    });
+
+    const total = document.createElementNS(NS, 'text');
+    total.setAttribute('x', '21');
+    total.setAttribute('y', '21');
+    total.setAttribute('text-anchor', 'middle');
+    total.setAttribute('dominant-baseline', 'central');
+    total.setAttribute('class', 'donut-total');
+    total.textContent = String(data.responses);
+    svg.append(total);
+
+    return el('div', { class: 'donut' }, [
+      svg,
+      el('ul', { class: 'donut-key' }, data.options.map((label, i) => el('li', {
+        class: 'donut-key-item',
+      }, [
+        el('span', {
+          class: 'donut-swatch', 'aria-hidden': 'true',
+          style: { opacity: shade(i, data.options.length) },
+          text: LETTERS[i] || String(i + 1),
+        }),
+        el('span', { class: 'donut-key-label', text: label }),
+        el('span', { class: 'donut-key-value', text: `${data.percentages[i]}% (${data.counts[i]})` }),
+      ]))),
+    ]);
+  }
+
+  /**
+   * One dot per answer. Honest about small numbers in a way a percentage is
+   * not: four out of twelve reads as four dots, where 33% reads as a third of
+   * something that might have been a thousand.
+   */
+  function dotsChart(question, data) {
+    return el('div', { class: 'dots' }, data.options.map((label, i) => el('div', {
+      class: 'dots-row',
+    }, [
+      el('span', { class: 'bar-key', 'aria-hidden': 'true', text: LETTERS[i] || String(i + 1) }),
+      el('span', { class: 'dots-label', text: label }),
+      el('span', { class: 'dots-value', text: `${data.percentages[i]}% (${data.counts[i]})` }),
+      el('div', {
+        class: 'dots-grid',
+        role: 'img',
+        'aria-label': t('present.responses', { n: data.counts[i] }),
+      }, Array.from({ length: data.counts[i] }, () => el('span', {
+        class: 'dot', style: { opacity: shade(i, data.options.length) },
+      }))),
+    ])));
   }
 
   /** Lower is better: the average position the room put each option in. */
@@ -463,6 +625,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
           onClick: () => act('reveal', { revealed: !state.revealed }),
         })
         : null,
+      fullscreenButton,
       el('button', { class: 'btn btn-quiet', type: 'button', text: t('present.export'), onClick: download }),
       el('button', { class: 'btn btn-quiet', type: 'button', text: t('present.exportCsv'), onClick: downloadCsv }),
       el('button', {
@@ -563,6 +726,12 @@ export function renderPresent(root, { code, adminKey, onHome }) {
 
   return () => {
     clearInterval(ticker);
+    clearTimeout(idleTimer);
+    removeEventListener('mousemove', onMove);
+    removeEventListener('keydown', onMove);
+    document.removeEventListener('fullscreenchange', onFullscreenChange);
+    document.body.dataset.presenting = 'false';
+    document.body.dataset.idle = 'false';
     socket.close();
   };
 }

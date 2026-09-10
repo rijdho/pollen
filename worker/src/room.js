@@ -748,10 +748,13 @@ function prepareQuestion(q) {
     const correct = [...new Set((Array.isArray(q.correct) ? q.correct : [])
       .filter((i) => Number.isInteger(i) && i >= 0 && i < options.length))]
       .sort((a, b) => a - b);
+    // How the projector draws it. Bars unless asked otherwise: they are the
+    // most legible of the three from the back of a room.
+    const chart = ['bars', 'donut', 'dots'].includes(q.chart) ? q.chart : 'bars';
     return {
       type: 'choice',
       prompt,
-      spec: { options, multiple: Boolean(q.multiple), correct, seconds, showResults: q.showResults === true },
+      spec: { options, multiple: Boolean(q.multiple), correct, seconds, chart, showResults: q.showResults === true },
     };
   }
 

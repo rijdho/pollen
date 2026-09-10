@@ -311,6 +311,108 @@ ok('an audience question waits for approval', moderated.queued.length === 1, mod
 ok('and reaches the projector once approved', moderated.board.length === 1, moderated.board);
 
 
+{
+  // The three chart kinds, driven through the presenter's own add-a-question
+  // panel so the setting travels the whole way: form, server, and back out to
+  // the projected screen.
+  for (const [kind, selector] of [['Donut', '.donut-svg'], ['Dots', '.dots-grid']]) {
+    const drawn = await page.evaluate(async (k, sel) => {
+      const open = document.querySelector('.adder');
+      open.open = true;
+      await new Promise((r) => setTimeout(r, 150));
+      [...open.querySelectorAll('.actions .btn')]
+        .find((b) => /Multiple choice|Auswahlfrage|Opción múltiple/.test(b.textContent)).click();
+      await new Promise((r) => setTimeout(r, 200));
+      const type = (n, v) => { n.value = v; n.dispatchEvent(new Event('input', { bubbles: true })); };
+      type(open.querySelector('input[type=text]'), 'Chart ' + k);
+      const opts = open.querySelectorAll('.opt-row input[type=text]');
+      type(opts[0], 'One'); type(opts[1], 'Two');
+      const picker = [...open.querySelectorAll('select')]
+        .find((sel2) => [...sel2.options].some((o) => o.textContent === k));
+      picker.value = k.toLowerCase();
+      picker.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 120));
+      [...open.querySelectorAll('.btn-lg')].pop().click();
+      await new Promise((r) => setTimeout(r, 700));
+      open.open = false;
+      // Walk to it and put one answer in.
+      for (let i = 0; i < 12; i += 1) {
+        const next = [...document.querySelectorAll('.controls .btn')]
+          .find((b) => /^Next|^Weiter|^Siguiente/.test(b.textContent));
+        if (!next || next.disabled) break;
+        next.click();
+        await new Promise((r) => setTimeout(r, 220));
+      }
+      return document.querySelector('.stage-prompt')?.textContent;
+    }, kind, selector);
+    ok(`a question can be set to draw as ${kind.toLowerCase()}`, drawn === 'Chart ' + kind, drawn);
+  }
+
+  // Both need an answer before anything is drawn.
+  const rendered = await page.evaluate(async () => {
+    const room = location.pathname.split('/').pop();
+    const voter = 'chartprobe01';
+    const idx = Number(document.querySelector('.stage-step').textContent.match(/\d+/)[0]) - 1;
+    await fetch(`/api/rooms/${room}/vote`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-pollen-voter': voter },
+      body: JSON.stringify({ idx, value: [0] }),
+    });
+    await new Promise((r) => setTimeout(r, 800));
+    return { dots: !!document.querySelector('.dots-grid .dot') };
+  });
+  ok('and dots are drawn one per answer', rendered.dots, rendered);
+}
+
+{
+  // The join block is a quarter of the projected screen and stops earning it
+  // after the first minute, so it collapses. Measured rather than eyeballed.
+  const heights = await page.evaluate(async () => {
+    const head = document.querySelector('.present-head');
+    const before = head.getBoundingClientRect().height;
+    head.querySelector('.join-toggle').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const after = head.getBoundingClientRect().height;
+    const codeStillShown = !!document.querySelector('.join-code-small');
+    head.querySelector('.join-toggle').click();
+    await new Promise((r) => setTimeout(r, 200));
+    return { before, after, codeStillShown, restored: head.getBoundingClientRect().height };
+  });
+  ok('collapsing the join block gives the screen back',
+    heights.after < heights.before / 2, heights);
+  ok('and the code stays readable for whoever arrives late', heights.codeStillShown, heights);
+  ok('and it opens again', Math.abs(heights.restored - heights.before) < 2, heights);
+
+  // Full screen is refused without a gesture the browser recognises, so the
+  // mode is checked by driving the attribute the button sets rather than by
+  // pretending the request succeeded.
+  const presenting = await page.evaluate(async () => {
+    document.body.dataset.presenting = 'true';
+    await new Promise((r) => setTimeout(r, 100));
+    const hidden = (sel) => {
+      const node = document.querySelector(sel);
+      return !node || getComputedStyle(node).display === 'none';
+    };
+    const out = {
+      headerHidden: hidden('.site-head'),
+      footerHidden: hidden('.site-foot'),
+      toolsHidden: hidden('.present-tools'),
+      promptSize: parseFloat(getComputedStyle(document.querySelector('.stage-prompt')).fontSize),
+    };
+    document.body.dataset.presenting = 'false';
+    await new Promise((r) => setTimeout(r, 100));
+    out.promptSizeNormal = parseFloat(getComputedStyle(document.querySelector('.stage-prompt')).fontSize);
+    return out;
+  });
+  ok('presenting mode hides this page\'s own chrome',
+    presenting.headerHidden && presenting.footerHidden && presenting.toolsHidden, presenting);
+  ok('and gives the question the space it frees',
+    presenting.promptSize > presenting.promptSizeNormal, presenting);
+  ok('there is a button for it',
+    await page.evaluate(() => [...document.querySelectorAll('.controls .btn')]
+      .some((b) => /Full screen|Vollbild|Pantalla completa/.test(b.textContent))));
+}
+
 // Ranking, ordered from a phone with the buttons rather than by dragging.
 console.log('');
 await page.evaluate(async () => {

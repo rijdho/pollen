@@ -29,7 +29,7 @@ const CODE = SOURCES.map((f) => readFileSync(f, 'utf8')).join('\n');
 // Keys the application assembles at run time and therefore never writes down.
 // Anything matching these prefixes is exempt from the "is it used" check; the
 // prefixes themselves are pinned so the exemption cannot quietly widen.
-const ASSEMBLED = ['error.', 'editor.add'];
+const ASSEMBLED = ['error.', 'editor.add', 'editor.chart_'];
 
 test('every locale carries exactly the same keys', () => {
   for (const locale of LOCALES) {

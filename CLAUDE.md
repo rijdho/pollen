@@ -229,7 +229,7 @@ byte-identical to the working tree, compared by hash rather than by trusting a d
     npm run dev     wrangler on http://127.0.0.1:8788
     npm run serve   the same tool on Node, no Cloudflare
     npm run live    137 checks against a running server    (needs dev or serve)
-    npm run ui      45 checks driving the pages in a browser (needs a server + Chrome)
+    npm run ui      54 checks driving the pages in a browser (needs a server + Chrome)
 
 `npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
 `npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first

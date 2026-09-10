@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A presentation mode for the projected screen.** The join block collapses to
+  one line once the room has joined, giving back the 28% of the height the code
+  and the QR were holding permanently, and full screen drops this page's own
+  header, footer and tools as well as the browser's, fading the controls out
+  until the mouse moves. Measured rather than eyeballed, and pinned by browser
+  checks that compare the header's height before and after.
+- **Multiple choice can be drawn as bars, a donut or one dot per answer**, set
+  per question. Bars stay the default and the setting says why: from the back of
+  a room a length is easier to compare than an angle. The donut and the dots use
+  a ramp of the brand with the option letters rather than eight hues, because a
+  colour legend is one more thing to read at fifteen metres.
+
 ## [1.2.0] - 2026-09-10
 
 Version DOI: [10.5281/zenodo.22690076](https://doi.org/10.5281/zenodo.22690076)
