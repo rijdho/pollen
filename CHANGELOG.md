@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.1.0] - 2026-09-10
 
+Version DOI: [10.5281/zenodo.22686542](https://doi.org/10.5281/zenodo.22686542)
+
 ### Added
 
 - **It runs on Node, not only on Cloudflare.** `npm run serve` starts the whole
