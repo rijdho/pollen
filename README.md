@@ -73,9 +73,11 @@ at 3.9.](docs/presenter-scale.png)
 The presenter moves the room from one question to the next, can stop and reopen answers,
 clear a question, download the results as JSON, or end the session and delete everything.
 
-Results stay on the projector by default. A question can be set to show its tally on the
-phones as well; that costs one extra request per person per question, which is affordable,
-and the setting says so where it is switched on.
+Results stay on the projector by default. A question can be set to show them on the phones
+as well, and then each person sees the results on their own device once they have answered.
+It costs one extra request per person per question, which is linear and affordable where a
+live feed to every phone would not be; that arithmetic lives here rather than in the
+setting, which now says what happens in the room instead of what it costs to run.
 
 Results download as JSON or as CSV.
 

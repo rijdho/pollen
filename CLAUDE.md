@@ -122,6 +122,26 @@ production host still produced only "no connection". `tests/ui.mjs` also records
 request and every WebSocket of a full session and asserts none left the origin, which is
 confirmatory rather than primary, and its comment says so.
 
+## Why there is no database, and what to say when asked
+
+The Durable Object is the storage AND the single point every vote passes through, which is
+what makes counting correct without locks and gives the room's WebSockets a home.
+Cloudflare's framing: Durable Objects coordinate between clients and give strongly
+consistent storage attached to the same object. A database gives the second half only.
+
+The README carries the long answer under "If you want it to store things somewhere else".
+The short one, so it is not re-derived:
+
+- **D1 instead of the object** replaces storage and leaves coordination and the sockets
+  homeless, so you need a Durable Object anyway and end up with two stores that must agree.
+  Do not.
+- **Keeping results past the room** is what the question usually means, and it needs a
+  webhook, not a database: post the export to a URL the presenter owns, from `Room.alarm()`
+  and from the close action. Roughly thirty lines, one new binding, nothing else changes.
+  It is the one storage variant worth building and it is not built.
+- **Off Cloudflare** is a port, not a setting: `shared/`, `public/` and the tests carry
+  over, `worker/src/` is rewritten.
+
 ## Two Wrangler configs, and why
 
 `wrangler.toml` is this deployment: it carries the custom domain route and `workers_dev =
@@ -210,6 +230,17 @@ GitHub About block set with description, homepage and six topics; and one full-h
 sweep whose six hits were all read and all benign (the AGPL's own wording about passwords, a
 README sentence saying the room code is not a secret, and the `wrangler.toml` comment
 stating this Worker is never on the workers.dev namespace).
+
+### Worth building next
+
+- **A webhook for the results**, posted to a URL the presenter owns when the session ends
+  or the room expires. It is the answer to "can I connect it to my own database", it needs
+  no database, and it adds one binding, which `tests/selfhost.test.mjs` will flag: the
+  self-host instructions have to gain a step the same day.
+- A full cloud drops its least common words. They are in the download and the screen says
+  how many, but the presenter cannot see them at all.
+- The scoreboard has no speed bonus. Doing it honestly means timing arrival at the object,
+  never trusting a time a phone reports.
 
 ### One thing that is not this repo's to fix
 

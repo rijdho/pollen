@@ -153,6 +153,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- The setting that shows results on phones explained its own billing model
+  instead of what it does: "it costs one extra request per person per question"
+  tells a presenter nothing about their room. It now says the results stay on
+  the projected screen unless you turn it on, and that each person then sees
+  them on their own phone once they have answered. It also says "results"
+  rather than "tally". The cost arithmetic moved to the README, where it is
+  useful.
+
+
 - The creation limit charged for attempts that never opened a room, so a run of
   false starts could lock someone out having successfully created nothing. It is
   now charged only on success, the ceiling is thirty an hour rather than ten, and
