@@ -202,6 +202,25 @@ about thirty lines in `Room.alarm()` and the close action, it adds one binding t
 self-host config, and it keeps everything else exactly as it is. It is the only change here
 I would actually recommend.
 
+**Where the results would go.** If you build that webhook, the receiver is your choice and
+it is worth making it deliberately, because the tool's promise that nothing leaves it is
+yours to keep or to break:
+
+| Receiver | Fits because | Costs you |
+|---|---|---|
+| Another Worker in your own account, writing to R2, D1 or KV | you already have the account from deploying this; nothing new is involved | about twenty lines of your own code |
+| A self-hosted collector you already run, n8n or Node-RED | nothing leaves machines you administer | only worth it if you already run one |
+| A Google Apps Script web app writing to a Sheet | the one a non-technical presenter sets up in ten minutes, and the sheet already exists | the answers go to Google |
+| Hosted automation: Zapier, Make, Pipedream | no setup at all | a company sits between a room and its own answers, which is the thing this tool exists to avoid |
+
+Whichever you pick, three sentences on this page stop being true for rooms that use it:
+nothing is stored after the session ends, there is no third-party request of any kind, and
+the room deletes itself and takes the answers with it. Change them, or you are lying about
+your own copy. And the URL is chosen by whoever runs the room, which makes it a
+server-side request forgery surface: require `https:`, refuse loopback and private ranges,
+do not follow redirects, cap the body and the timeout, and never put the room's admin key
+in the payload.
+
 **"Run it without Cloudflare."** Node with SQLite and a WebSocket library would work, and
 it is a port rather than a setting: the `shared/` modules, the pages and the tests carry
 over unchanged, and `worker/src/` is rewritten. What you lose is the free plan, the edge,
