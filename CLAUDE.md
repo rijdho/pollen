@@ -237,6 +237,29 @@ stating this Worker is never on the workers.dev namespace).
   or the room expires. It is the answer to "can I connect it to my own database", it needs
   no database, and it adds one binding, which `tests/selfhost.test.mjs` will flag: the
   self-host instructions have to gain a step the same day.
+
+  Three things whoever builds it has to handle, written down now because they are easy to
+  miss later.
+
+  **It breaks three promises this tool makes on its own front page.** `home.lede` says
+  nothing is stored after the session ends, `home.about.body` says there is no third-party
+  request of any kind, and the README says both. A configured webhook makes all three false
+  for that room. Scope them ("unless you point it somewhere") or the tool lies about itself.
+
+  **A presenter-supplied URL is an SSRF surface.** The Worker would be making a request to
+  an address a stranger chose. Require `https:`, refuse loopback, link-local and private
+  ranges, do not follow redirects, cap the body, give it a short timeout, and never put the
+  admin key in it. The room code and the results are the whole payload.
+
+  **Where to point it, in the order that fits this tool.** Another Worker in the presenter's
+  own Cloudflare account, writing to R2, D1 or KV: same account they already have from
+  deploying this, no new party, about twenty lines. Then a self-hosted collector they
+  already run, n8n or Node-RED. Then a Google Apps Script web app writing to a Sheet, which
+  is the one a non-technical presenter can actually set up in ten minutes, at the cost of
+  the answers going to Google; the `doPost` shape is believed to work for a server-to-server
+  POST but has not been tried here. Hosted automation services (Zapier, Make, Pipedream) work
+  and should be named last with the reason: they put a company between a room and its own
+  answers, which is the thing this tool exists to avoid.
 - A full cloud drops its least common words. They are in the download and the screen says
   how many, but the presenter cannot see them at all.
 - The scoreboard has no speed bonus. Doing it honestly means timing arrival at the object,
