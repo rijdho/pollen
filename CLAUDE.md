@@ -105,6 +105,23 @@ room. `own` is computed per request, so each viewer learns only about their own 
 - **The voter token must be 8 to 64 characters** of `[A-Za-z0-9_-]`. Shorter is refused
   with `no_voter`, which is a 400 and no broadcast, so a socket read after it hangs.
 
+## A clone cannot end up using this deployment
+
+Three independent things stop it, and none relies on the other two:
+
+1. **Every URL in the browser is relative.** `fetch(path)`, `new URL(path, location.href)`
+   and `location.origin` for the join and recovery links. Nothing names a host.
+2. **`connect-src 'self'`** in `public/_headers`. A hardcoded absolute URL added by mistake
+   is refused by the browser before the code gets a say. `tests/assets.test.mjs` pins the
+   directive to exactly `'self'`.
+3. **The API sends no CORS headers.** Even with the policy loosened, another origin's page
+   gets no usable reply.
+
+Verified on 2026-09-10 by trying to break it: loosening the policy AND hardcoding the
+production host still produced only "no connection". `tests/ui.mjs` also records every
+request and every WebSocket of a full session and asserts none left the origin, which is
+confirmatory rather than primary, and its comment says so.
+
 ## Two Wrangler configs, and why
 
 `wrangler.toml` is this deployment: it carries the custom domain route and `workers_dev =
@@ -140,10 +157,16 @@ decoding the new matrix would make that test vacuous.**
 Working, deployed and private. Eight commits on `main`, all pushed. The deployed files are
 byte-identical to the working tree (compared by hash, not by trusting the deploy log).
 
-    npm test        59 unit tests, no server needed
+    npm test        75 unit tests, no server needed
     npm run dev     wrangler on http://127.0.0.1:8788
-    npm run live    101 checks against the running Worker   (needs dev)
-    npm run ui      23 checks driving the pages in a browser (needs dev + Chrome)
+    npm run live    137 checks against the running Worker   (needs dev)
+    npm run ui      45 checks driving the pages in a browser (needs dev + Chrome)
+
+**`npm run ui` opens four rooms, and the tool's own creation limit is thirty an hour per
+address.** Eight runs in an hour exhausts it, and the suite now stops with a message saying
+so rather than a TypeError. Local Durable Object state lives in `.wrangler/state` and is
+disposable: deleting it and restarting `npm run dev` clears the throttle along with every
+local room.
 
 `npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
 `npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first
