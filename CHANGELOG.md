@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- The README explains what to do if you want the results stored somewhere
+  else, and why the answer is not "add a database": the Durable Object is the
+  storage and the point every vote passes through, so swapping in D1 leaves
+  coordination and the WebSockets homeless and gives you two stores that must
+  agree. The variant actually worth having is a webhook, which needs no
+  database, and it is written down as not yet built.
 - **A clone can now be deployed.** `wrangler.self-host.toml` is the deployed
   config without the custom domain route, so someone who downloads the
   repository gets a working copy on their own Cloudflare account with

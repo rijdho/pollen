@@ -171,6 +171,41 @@ a navigation request does not invoke the Worker at all, so someone typing the jo
 address is not a billed request. Durable Objects hibernate between votes, so a room that
 sits open through a two-hour session is not billed for the waiting.
 
+### If you want it to store things somewhere else
+
+There is no database to swap out, and that is worth explaining rather than just asserting,
+because "add a database" is the obvious next thought and it makes this design worse.
+
+**The Durable Object is doing two jobs at once.** It is the storage, and it is also the one
+place every vote for a room passes through, which is what makes counting correct without
+locks and what lets the room's WebSockets live somewhere. Cloudflare's own framing is that
+Durable Objects exist to coordinate between clients *and* to give strongly consistent
+storage attached to that same object. A database gives you the second half only.
+
+So the three things someone might actually mean:
+
+**"Use D1 instead."** D1 is a SQL database you query from a Worker. It would hold the
+votes, but it cannot hold a WebSocket and it is not a serialization point, so you would
+still need a Durable Object for the live screen, and now the count lives in one place and
+the room lives in another. Two stores that must agree, to replace one that cannot disagree.
+It also costs a round trip per vote where there is currently none. Not recommended, and the
+`shared/` modules would not need to change: it is the object, not the arithmetic, that
+would be rebuilt.
+
+**"Keep the results after the room dies."** This is what most of the question usually is,
+and it needs no database. Results already download as JSON or CSV. If you want that to
+happen without remembering, the small version is a webhook: one URL you own, posted the
+export to when the presenter ends the session or when the twelve hours run out. That is
+about thirty lines in `Room.alarm()` and the close action, it adds one binding to the
+self-host config, and it keeps everything else exactly as it is. It is the only change here
+I would actually recommend.
+
+**"Run it without Cloudflare."** Node with SQLite and a WebSocket library would work, and
+it is a port rather than a setting: the `shared/` modules, the pages and the tests carry
+over unchanged, and `worker/src/` is rewritten. What you lose is the free plan, the edge,
+and a room that costs nothing when nobody is in it; what you gain is running it on a
+machine you control. Nothing in `public/` assumes Cloudflare.
+
 ### What is stored, and for how long
 
 Per room: the questions, one row per answer, and one row per device that has answered.
