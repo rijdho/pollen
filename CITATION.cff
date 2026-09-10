@@ -32,7 +32,7 @@ identifiers:
 repository-code: "https://github.com/rijdho/pollen"
 url: "https://pollen.rijdho.org"
 license: AGPL-3.0-or-later
-version: 1.1.0
+version: 1.2.0
 date-released: "2026-09-10"
 keywords:
   - audience response
