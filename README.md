@@ -223,11 +223,12 @@ server-side request forgery surface: require `https:`, refuse loopback and priva
 do not follow redirects, cap the body and the timeout, and never put the room's admin key
 in the payload.
 
-**"Run it without Cloudflare."** Node with SQLite and a WebSocket library would work, and
-it is a port rather than a setting: the `shared/` modules, the pages and the tests carry
-over unchanged, and `worker/src/` is rewritten. What you lose is the free plan, the edge,
-and a room that costs nothing when nobody is in it; what you gain is running it on a
-machine you control. Nothing in `public/` assumes Cloudflare.
+**"Run it without Cloudflare."** That is `npm run serve`, and it is documented above under
+Run your own copy. It is not a second implementation: `server/` provides the Durable Object
+interface on top of `node:sqlite` and `ws`, and imports `worker/src/` unchanged, so the room
+logic, the routing and every SQL statement are the same code. `tests/portable.test.mjs`
+fails if `server/` ever grows a copy of the arithmetic, of the storage rules or of the
+security policy.
 
 ### What is stored, and for how long
 
@@ -278,9 +279,26 @@ deployed is what is in the repository.
 
 ## Run your own copy
 
+It runs in two places, and the same test suites pass against both.
+
+**On your own machine**, or a VPS, or anything that runs Node 22.5 or later:
+
 ```bash
 git clone https://github.com/rijdho/pollen && cd pollen
 npm install
+npm run serve            # http://127.0.0.1:8788, or set PORT and HOST
+```
+
+Rooms live in the process, so restarting it ends them; for a laptop at a workshop that is
+usually what you want. `server/` is a platform adapter, not a second implementation: it
+provides the Durable Object interface on top of `node:sqlite`, which ships inside Node, and
+`ws`, and it imports `worker/src/` unchanged. The room logic, the routing, the rate limits
+and all forty-two SQL statements are the same code that runs on Cloudflare.
+
+**On your own Cloudflare account**, which is where a room costs nothing while nobody is in
+it and survives a restart:
+
+```bash
 npx wrangler login
 npx wrangler deploy -c wrangler.self-host.toml
 ```

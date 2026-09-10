@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **It runs on Node, not only on Cloudflare.** `npm run serve` starts the whole
+  tool on any machine with Node 22.5 or later. `server/` is a platform adapter
+  rather than a second implementation: it provides the Durable Object interface
+  on top of `node:sqlite`, which ships inside Node, and `ws`, and it imports
+  `worker/src/` unchanged, so the room logic, the routing, the rate limits and
+  every SQL statement are the same code. Proved by running the same suites
+  against it: all 137 live checks and all 45 browser checks pass.
+- `tests/portable.test.mjs` keeps it that way. It fails if `server/` names an
+  application table, mentions any of the tallying or input functions, or holds a
+  second copy of the Content-Security-Policy, which it parses from
+  `public/_headers` instead of repeating.
+
 ## [1.0.0] - 2026-09-10
 
 Version DOI: [10.5281/zenodo.22685894](https://doi.org/10.5281/zenodo.22685894)

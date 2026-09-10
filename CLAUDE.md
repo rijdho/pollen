@@ -122,6 +122,34 @@ production host still produced only "no connection". `tests/ui.mjs` also records
 request and every WebSocket of a full session and asserts none left the origin, which is
 confirmatory rather than primary, and its comment says so.
 
+## It runs in two places, and `server/` is not a second implementation
+
+`npm run serve` runs the whole tool on Node. `server/durable.mjs` provides the Durable
+Object interface (`sql.exec`, `setAlarm`, `deleteAll`, `acceptWebSocket`, `getWebSockets`,
+`idFromName`, `blockConcurrencyWhile`, `serializeAttachment`, `WebSocketPair`) on top of
+`node:sqlite` and `ws`, and `server/index.mjs` imports `worker/src/` **unchanged**.
+
+That is the whole design constraint: one implementation of the room, two platforms. A copy
+of the logic in `server/` would drift, and the copy nobody runs before a workshop is the one
+that breaks. `tests/portable.test.mjs` fails if `server/` names an application table,
+mentions any of the tallying or input functions, or contains a second copy of the security
+policy, which it parses from `public/_headers` instead.
+
+Proved rather than claimed: `POLLEN_BASE=http://127.0.0.1:8789 npm run live` and the same
+for `npm run ui` pass all 137 and all 45 checks against the Node server, which are the
+suites that pass against the Worker.
+
+Three things that cost time when this was built, all in the seam rather than the logic:
+
+- **`stub.fetch()` takes a URL string on Cloudflare**, and the router uses that form for the
+  throttle object. The adapter has to wrap it into a `Request` or the first room creation
+  dies with "Invalid URL".
+- **The upgrade response must expose the socket as `webSocket`**, because that is the
+  property the router tests to tell a connection from a payload. Under any other name the
+  router wraps the response afresh and the socket is dropped.
+- **Node's `Response` refuses status 101**, so the adapter replaces the global with a
+  subclass that recognises the upgrade. It is the only global it touches.
+
 ## Why there is no database, and what to say when asked
 
 The Durable Object is the storage AND the single point every vote passes through, which is

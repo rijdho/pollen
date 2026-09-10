@@ -11,9 +11,16 @@
     "deploy": "npm test && wrangler deploy",
     "live": "node tests/live.mjs",
     "screenshots": "node docs/screenshots.mjs",
-    "ui": "node tests/ui.mjs"
+    "ui": "node tests/ui.mjs",
+    "serve": "node server/index.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.81.1"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=22.5.0"
   }
 }
