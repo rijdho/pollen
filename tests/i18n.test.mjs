@@ -104,3 +104,35 @@ test('the assembled prefixes are real, not a blanket exemption', () => {
   }
   assert.ok(CODE.includes("t('error.' +"), 'error keys are still assembled from a code');
 });
+
+// The register, pinned. Every tool in this family writes its Spanish and German
+// without addressing the reader: orcid-finder says "Encuentra las cuentas ORCID
+// que declaran una institución" and "Anstellungsdatensätze werden gelesen", not
+// "Busque..." or "Suchen Sie...". This one was written by translating the
+// English sentence by sentence, which produced formal address throughout and
+// calques like "vea llegar las respuestas". Infinitives, impersonal `se`,
+// passives and noun phrases instead.
+test('the Spanish never addresses the reader', () => {
+  const forms = /\b(Haga|Vea|Elija|Escriba|Ponga|Revise|Espere|Int[eé]ntelo|Añada|Exporte|Actívelo|Marque|Usted|Podrá|Su |Sus )\b/;
+  const offenders = Object.entries(STRINGS.es)
+    .filter(([, value]) => forms.test(value))
+    .map(([key]) => key);
+  assert.deepEqual(offenders, [],
+    'these use the usted imperative or possessive; the rest of the family does not');
+});
+
+test('the German never addresses the reader', () => {
+  const forms = /\b(Sie|Ihre|Ihr|Ihnen|Bitte)\b/;
+  const offenders = Object.entries(STRINGS.de)
+    .filter(([, value]) => forms.test(value))
+    .map(([key]) => key);
+  assert.deepEqual(offenders, [],
+    'these use Sie, Ihr or Bitte; the rest of the family uses infinitives and passives');
+});
+
+test('and the English does, because that is the language it was written in', () => {
+  // Not a double standard: the English is the original and reads naturally with
+  // "you". The point is that the other two are not translations of its grammar.
+  const you = Object.values(STRINGS.en).filter((value) => /\byou\b/i.test(value));
+  assert.ok(you.length > 3, 'the English addresses the reader, and that is fine');
+});

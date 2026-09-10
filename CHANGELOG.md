@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The Spanish and German were translated from the English rather than
+  written.** That produced formal address throughout (16 Spanish strings using
+  the usted imperative, 29 German ones with Sie, Ihr or Bitte) and calques like
+  "Haga una pregunta a una sala y vea llegar las respuestas" or "in the edge of
+  Cloudflare's network". Every other tool in the family writes both languages
+  without addressing the reader at all: infinitives, impersonal `se`, passives
+  and noun phrases. Both catalogues now do the same, and two tests pin it, with
+  a third recording that the English addresses the reader on purpose because it
+  is the original.
+
 ### Documentation
 
 - Records that room lookups are not rate limited and why that is a choice
