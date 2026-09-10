@@ -364,6 +364,16 @@ glossed over.
   enough to stop a script would also turn away a lecture hall arriving at once, which is
   the case this exists to serve, so that trade has been made deliberately and in this
   direction.
+- **Looking up a room is not rate limited, and that is a deliberate choice.** Guessing a
+  code is not realistic: 481,890,304 combinations means about 96 million lookups per hit
+  with five rooms live. But nothing stops somebody sending lookups all day, and on a free
+  plan that can exhaust the daily request allowance and take the site down for everybody
+  until it resets. The obvious defence, an edge rate limit per address, is the wrong one
+  here: the whole use case is a room of people behind one campus NAT, all joining in the
+  same ten seconds, so a limit tight enough to stop a scanner would refuse a lecture hall.
+  Rooms are ephemeral and the failure is a day of unavailability rather than a loss, so
+  this is documented rather than defended. A copy that needs the guarantee should run on a
+  paid plan or behind its own rate limiting.
 - **Anyone with the code can answer.** The code is the only barrier and it is on a screen
   in a public room. It is six characters from a 28-character alphabet, so it cannot
   usefully be guessed from outside, but it is not a secret.

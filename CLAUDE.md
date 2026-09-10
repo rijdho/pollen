@@ -150,6 +150,26 @@ Three things that cost time when this was built, all in the seam rather than the
 - **Node's `Response` refuses status 101**, so the adapter replaces the global with a
   subclass that recognises the upgrade. It is the only global it touches.
 
+## Room lookups are not rate limited, on purpose
+
+Measured against production on 2026-09-10: 25 consecutive lookups of non-existent codes all
+answered 404 with nothing throttling them.
+
+Guessing a room is infeasible. 28^6 is 481,890,304, so with five rooms live it takes about
+96 million lookups to hit one. What is real is the quota: a scanner at a couple of requests
+a second exhausts the free plan's 100,000 a day in about fourteen hours, and the site is
+down until it resets.
+
+**Do not answer this with an IP rate limit.** Cloudflare's free plan gives one rule counting
+by IP over ten seconds, and the use case here is two hundred people behind one campus NAT
+joining within the same ten seconds. A threshold low enough to stop a scanner refuses a
+lecture hall, which is the failure that actually matters. An in-Worker limit is worse still:
+the request has already been billed by the time the Worker can refuse it.
+
+Rooms are ephemeral, so the damage is a day of unavailability rather than a loss. It is in
+the README's caveats. A deployment that needs the guarantee runs on a paid plan or behind
+its own edge rules.
+
 ## Why there is no database, and what to say when asked
 
 The Durable Object is the storage AND the single point every vote passes through, which is

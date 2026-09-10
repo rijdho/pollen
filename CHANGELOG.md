@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation
+
+- Records that room lookups are not rate limited and why that is a choice
+  rather than an oversight. Guessing a code is infeasible, but a scanner can
+  exhaust the free plan's daily allowance; the obvious defence, an edge rate
+  limit per address, would refuse a lecture hall behind one campus NAT, which
+  is the failure that actually matters. Measured against production rather than
+  assumed.
+
 ## [1.1.0] - 2026-09-10
 
 Version DOI: [10.5281/zenodo.22686542](https://doi.org/10.5281/zenodo.22686542)
