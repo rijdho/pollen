@@ -335,9 +335,10 @@ CHANGELOG under their own release heading.
    image that will not fit is refused with a named cause instead.
 
 **No work is unreleased.** v1.5.0 is the last tag; what sits on `main` ahead of it is the
-version DOI record and notes to this file. When the next one is worth a DOI: the concept DOI never changes, and the version DOI replaces
-its predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
-version DOIs live in the CHANGELOG under their own release heading.
+version DOI record and notes to this file. When the next one is worth a DOI: the concept
+DOI never changes, and the version DOI replaces its predecessor in `CITATION.cff` rather
+than accumulating beside it, because superseded version DOIs live in the CHANGELOG under
+their own release heading.
 
 Done and not worth redoing: the leak sweep over the working tree and the full object
 history, whose only hits in the entire history are the AGPL's own wording about passwords,
