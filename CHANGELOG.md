@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.6.0] - 2026-09-21
 
+Version DOI: [10.5281/zenodo.22875685](https://doi.org/10.5281/zenodo.22875685)
+
 ### Added
 
 - **A multiple choice can leave its last option open.** The room then writes an
