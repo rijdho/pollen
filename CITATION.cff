@@ -6,7 +6,8 @@ abstract: >-
   kept afterwards. Multiple choice, rating scales, rankings, word clouds and
   audience questions with support votes; a choice question can leave its last
   option open for the room to write its own answer, or carry a right answer,
-  which adds a scoreboard, and any question can be timed by the server.
+  which adds a scoreboard where a countdown also pays for answering early, and
+  any question can be timed by the server.
   The room joins by typing a six-character code or scanning a QR code and
   answers on their phones, while the results build on the projected screen. Any
   question can carry a picture, rescaled in the browser to stay under 100 KB.
@@ -34,7 +35,7 @@ identifiers:
 repository-code: "https://github.com/rijdho/pollen"
 url: "https://pollen.rijdho.org"
 license: AGPL-3.0-or-later
-version: 1.6.0
+version: 1.7.0
 date-released: "2026-09-21"
 keywords:
   - audience response
