@@ -281,8 +281,9 @@ decoding the new matrix would make that test vacuous.**
 
 Public, released, deployed and citable. v1.5.0 is the last tag and what runs at
 `pollen.rijdho.org`, with the deployed files compared to the tree by hash rather than by
-trusting a deploy log. Its version DOI lands in the commit after the release, because
-Zenodo does not mint one until it has processed the GitHub release.
+trusting a deploy log. Its version DOI is recorded in the commit after the tag, because
+Zenodo does not mint one until it has processed the GitHub release, so `main` sits one
+commit ahead of v1.5.0 and that commit is the only thing on it.
 
     npm test        101 unit tests, no server needed
     npm run dev     wrangler on http://127.0.0.1:8788
@@ -332,8 +333,8 @@ CHANGELOG under their own release heading.
    floor is quality 0.5 in `imagefile.js`; below that text stops being readable, so an
    image that will not fit is refused with a named cause instead.
 
-**Nothing is unreleased.** v1.5.0 is the last tag and everything on `main` is in it. When
-the next one is worth a DOI: the concept DOI never changes, and the version DOI replaces
+**No work is unreleased.** v1.5.0 is the last tag, and the one commit on `main` ahead of
+it is the one that records its version DOI. When the next one is worth a DOI: the concept DOI never changes, and the version DOI replaces
 its predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
 version DOIs live in the CHANGELOG under their own release heading.
 
