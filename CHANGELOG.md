@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.7.0] - 2026-09-21
 
+Version DOI: [10.5281/zenodo.22876205](https://doi.org/10.5281/zenodo.22876205)
+
 ### Added
 
 - **A speed bonus on the scoreboard.** A right answer scores a hundred, and on
