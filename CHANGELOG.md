@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.5.0] - 2026-09-21
 
+Version DOI: [10.5281/zenodo.22874414](https://doi.org/10.5281/zenodo.22874414)
+
 ### Added
 
 - **A word cloud downloads as a picture.** The numbers already came out as JSON
