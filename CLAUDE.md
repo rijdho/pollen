@@ -172,7 +172,7 @@ mentions any of the tallying or input functions, or contains a second copy of th
 policy, which it parses from `public/_headers` instead.
 
 Proved rather than claimed: `POLLEN_BASE=http://127.0.0.1:8789 npm run live` and the same
-for `npm run ui` pass all 168 and all 81 checks against the Node server, which are the
+for `npm run ui` pass all 174 and all 88 checks against the Node server, which are the
 suites that pass against the Worker. Re-proved on 2026-09-21.
 
 **The variable is `POLLEN_BASE`.** Every harness reads that name and nothing else, so a run
@@ -307,11 +307,11 @@ Zenodo does not mint one until it has processed the GitHub release. `main` there
 ahead of the tag by that record and by whatever notes were written afterwards, which is
 the normal state here and not work waiting to be released.
 
-    npm test        105 unit tests, no server needed
+    npm test        111 unit tests, no server needed
     npm run dev     wrangler on http://127.0.0.1:8788
     npm run serve   the same tool on Node, no Cloudflare
-    npm run live    168 checks against a running server    (needs dev or serve)
-    npm run ui      81 checks driving the pages in a browser (needs a server + Chrome)
+    npm run live    174 checks against a running server    (needs dev or serve)
+    npm run ui      88 checks driving the pages in a browser (needs a server + Chrome)
 
 `npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
 `npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first
@@ -324,7 +324,7 @@ restarting `npm run dev` clears the throttle along with every local room.
 
 What exists: five question types (multiple choice, rating scale, ranking, word cloud,
 audience questions with support votes), a multiple choice whose last option can be left
-open for the room to write, right answers and a scoreboard, server-timed
+open for the room to write, right answers and a scoreboard with a speed bonus, server-timed
 countdowns, questions added to a live room, saved question sets exportable as a file,
 recovery links, results as JSON or CSV, a word cloud downloadable as a picture, an optional
 per-question tally on phones which those who answered read again once the question ends,
@@ -337,30 +337,33 @@ CHANGELOG under their own release heading.
 
 ### Pick up here
 
-1. **Decide whether audience questions should also skip approval.** Word clouds no longer
-   wait; audience questions still do, because they are whole sentences rather than one to
-   three words. That asymmetry is a judgement call, not an instruction, and it is one line
-   in `prepareQuestion` plus the default in `qform.js` if it should go.
-2. **A results webhook**, with everything it has to handle written down under "Worth
-   building next" below. It is the answer to "can I connect it to my own database".
-3. **A full cloud drops its least common words.** They are in the download and the screen
-   says how many were left out, but the presenter cannot see them at all.
-4. **The scoreboard has no speed bonus.** Doing it honestly means timing arrival at the
-   object, never trusting a time a phone reports.
-5. **The room cannot attach pictures, only the presenter can.** Asked and answered on
-   2026-09-10: an anonymous photograph three metres wide has no moderation story and no
-   accountable author, because audience items carry a position rather than a device token
-   on purpose. Reopening it means reopening the approval queue that word clouds shed.
-6. **A picture is capped at 100 KB and 1280 pixels** (`LIMITS.image`). Chosen with the
-   author, and reached by re-encoding in the browser rather than by refusing the file. The
-   floor is quality 0.5 in `imagefile.js`; below that text stops being readable, so an
-   image that will not fit is refused with a named cause instead.
+1. **A results webhook**, with everything it has to handle written down under "Worth
+   building next" below. It is the answer to "can I connect it to my own database". Asked
+   about and deferred on 2026-09-21, for a reason worth keeping: a Worker that POSTs to a
+   URL anyone can type is an outbound request to wherever a stranger says, so the design
+   has to answer that before it answers anything about convenience.
+2. **The open option cannot be moderated.** What the room writes on a multiple choice goes
+   straight to the screen, folded but unapproved, which is what was asked for. A room that
+   needs a queue has the word cloud's switch as the model, and it would be the same shape.
 
-**No work is unreleased.** v1.6.0 is the last tag; what sits on `main` ahead of it is the
-version DOI record and notes to this file. When the next one is worth a DOI: the concept
-DOI never changes, and the version DOI replaces its predecessor in `CITATION.cff` rather
-than accumulating beside it, because superseded version DOIs live in the CHANGELOG under
-their own release heading.
+Decided and closed, so they are not debt:
+
+- **Audience questions keep their approval queue** (2026-09-21). A cloud entry is one to
+  three words and a question is a whole sentence, which is the asymmetry, and it is
+  deliberate.
+- **The room cannot attach pictures, only the presenter can** (2026-09-10). An anonymous
+  photograph three metres wide has no moderation story and no accountable author, because
+  audience items carry a position rather than a device token on purpose.
+- **A picture is capped at 100 KB and 1280 pixels** (`LIMITS.image`), reached by
+  re-encoding in the browser rather than by refusing the file. The floor is quality 0.5 in
+  `imagefile.js`; below that text stops being readable, so an image that will not fit is
+  refused with a named cause instead.
+
+**The speed bonus, the dropped-word list and the register rules are unreleased**, all
+three in the CHANGELOG's Unreleased section, and v1.6.0 is the last tag. When the next one
+is worth a DOI: the concept DOI never changes, and the version DOI replaces its
+predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
+version DOIs live in the CHANGELOG under their own release heading.
 
 **Three files carry the version, not two.** `package.json` sat at `0.1.0` through the
 first seven releases, which is what an unpublished private package tends to do, and was
@@ -389,6 +392,26 @@ Rewritten on 2026-09-10, and `tests/i18n.test.mjs` fails if either form comes ba
 English does address the reader, on purpose, because it is the original and not a
 translation of anyone's grammar; a third test records that so the first two do not look
 like a double standard.
+
+**Those two rules were themselves written for the instance, and were rewritten on
+2026-09-21.** Each was a list of the forms already found: eleven capitalised Spanish verbs,
+and three cases of the German polite possessive. Five strings sat in the catalogue passing
+them, including `home.resume`, which was "Ihren Raum wieder öffnen" in German and "su sala"
+in Spanish; the widened rule then found two more. The shape is what is worth keeping:
+
+- **The pronouns and clitics are a class** and are matched as one, in any case.
+- **The Spanish imperative cannot be**, because it is spelled exactly like a third-person
+  subjunctive: "tantas como haga falta" and "Haga clic" are the same form. That half stays
+  a list, is matched only capitalised, which is where an imperative to a reader lands in a
+  catalogue of labels, and says so in the test. Matching it in any case put two innocent
+  strings in the dock, and a guard that cries wolf gets switched off.
+- **Where "su" or "le" really is a third person**, the string is named in `ES_THIRD_PERSON`
+  with who it refers to, and a test fails if one stops matching, so an exemption cannot
+  outlive the string it was written for. That is the same device as the `ASSEMBLED` prefix
+  pinning a few tests above.
+- **A test plants the six forms that walked through the old rule** and asserts each is now
+  refused, plus six the family does write and asserts each still passes. A rule that cannot
+  fail on the strings that caused it to be rewritten is a memory, not a rule.
 
 ### One thing that is not this repo's to fix
 

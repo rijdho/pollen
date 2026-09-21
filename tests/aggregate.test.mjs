@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { percentages, tallyChoice, tallyScale, tallyCloud, tallyWritten, tallyRank, cloudWeight } from '../public/js/shared/aggregate.js?v=2';
+import { percentages, tallyChoice, tallyScale, tallyCloud, tallyWritten, tallyRank, cloudWeight, answerPoints, RIGHT_POINTS, SPEED_POINTS } from '../public/js/shared/aggregate.js?v=2';
 
 test('percentages always sum to exactly 100', () => {
   // The case that makes naive rounding visible on a projector: three equal
@@ -158,4 +158,31 @@ test('a written answer that folds to nothing is not an answer', () => {
   const t = tallyWritten(['   ', '\u200b', 'tea'], 10);
   assert.deepEqual(t.items.map((i) => i.label), ['tea']);
   assert.equal(t.total, 1);
+});
+
+test('a wrong answer is worth nothing, however fast it was', () => {
+  assert.equal(answerPoints(false, 10_000, 10_000), 0);
+  assert.equal(answerPoints(false, 0, 0), 0);
+});
+
+test('a right answer with no clock is worth exactly the base', () => {
+  // Nothing to be fast against, so nothing is paid for being fast. The two
+  // shapes a question with no countdown can reach this with:
+  assert.equal(answerPoints(true, 0, 0), RIGHT_POINTS);
+  assert.equal(answerPoints(true, 5_000, 0), RIGHT_POINTS);
+});
+
+test('a right answer on the clock pays for what is left of it', () => {
+  assert.equal(answerPoints(true, 10_000, 10_000), RIGHT_POINTS + SPEED_POINTS, 'instant');
+  assert.equal(answerPoints(true, 5_000, 10_000), RIGHT_POINTS + SPEED_POINTS / 2, 'halfway');
+  assert.equal(answerPoints(true, 0, 10_000), RIGHT_POINTS, 'on the buzzer');
+  assert.equal(answerPoints(true, 2_500, 10_000), 113, 'rounded, never fractional on a wall');
+});
+
+test('a clock that has run out, or one the arithmetic overshoots, stays in range', () => {
+  // The vote is stored with the object's own clock, so a negative remainder
+  // means it arrived after time; it cannot pay a negative bonus, and a
+  // remainder larger than the limit cannot pay more than the whole one.
+  assert.equal(answerPoints(true, -4_000, 10_000), RIGHT_POINTS);
+  assert.equal(answerPoints(true, 99_000, 10_000), RIGHT_POINTS + SPEED_POINTS);
 });

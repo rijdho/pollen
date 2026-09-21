@@ -48,7 +48,14 @@ async function api(path, { method = 'GET', body, key, who } = {}) {
   if (key) headers['x-pollen-key'] = key;
   if (who) headers['x-pollen-voter'] = who;
   const res = await fetch(BASE + path, { method, headers, body: body && JSON.stringify(body) });
-  if (!res.ok) throw new Error(`${method} ${path} answered ${res.status}`);
+  // The body, not only the status. A run died once on a room that would not
+  // open and said `answered 429` with nothing to say whether that was the
+  // creation throttle, and the next run passed: a failure that cannot be read
+  // is a failure that has to be reproduced before it can be understood.
+  if (!res.ok) {
+    const said = await res.text().catch(() => '');
+    throw new Error(`${method} ${path} answered ${res.status} ${said.slice(0, 200)}`);
+  }
   return res.json();
 }
 
@@ -573,6 +580,44 @@ await page.evaluate(async () => {
     board.filter((row) => !row.written).every((row) => row.key.length === 1), board);
 }
 
+// The scoreboard with a speed bonus on it. It shows two numbers only where a
+// scored question had a clock: the points that order the board, and the number
+// of right answers, which is what the room actually came to find out.
+{
+  const before = await api(`/api/rooms/${room.code}/state`, { key: room.key });
+  await api(`/api/rooms/${room.code}/admin`, {
+    method: 'POST', key: room.key,
+    body: { action: 'add', payload: { question: { type: 'choice', prompt: 'Quick and right', options: ['1994', '2007'], correct: [1], seconds: 30 } } },
+  });
+  await api(`/api/rooms/${room.code}/admin`, {
+    method: 'POST', key: room.key, body: { action: 'goto', payload: { idx: before.total } },
+  });
+  const answered = await phone.evaluate(async () => {
+    await new Promise((r) => setTimeout(r, 1000));
+    const options = [...document.querySelectorAll('.choices .choice')];
+    if (options.length < 2) return false;
+    options[1].click();
+    document.querySelector('.join-stage .btn-block').click();
+    await new Promise((r) => setTimeout(r, 1000));
+    return !!document.querySelector('.sent');
+  });
+  ok('a phone answers the timed quiz question', answered === true);
+
+  const board = await page.evaluate(async () => {
+    await new Promise((r) => setTimeout(r, 800));
+    return [...document.querySelectorAll('.score-row')].map((row) => ({
+      nick: row.querySelector('.score-nick')?.textContent,
+      points: row.querySelector('.score-points')?.textContent,
+      right: row.querySelector('.score-right')?.textContent || null,
+    }));
+  });
+  const scorer = board.find((row) => row.right !== null);
+  ok('the board shows points once a scored question had a clock',
+    !!scorer && /\d{3}/.test(scorer.points), board);
+  ok('and says how many were right beneath them',
+    !!scorer && /\d+/.test(scorer.right), board);
+}
+
 // No page ever reads as a stringified nothing. DOM append() turns a null child
 // into the word "null", and it reached a screen three times: twice on the
 // presenter view and once on the home page, which this check was not looking at
@@ -827,6 +872,55 @@ await strangerContext.close();
   ok('the three answers are on the screen it was taken from',
     png.drawn.length === 3, png.drawn);
   ok('the page raised no error drawing it', screenErrors.length === 0, screenErrors);
+
+  // A cloud that cannot fit everything. The screen says how many were left
+  // out; this is the list of which, and it belongs to the tools rather than to
+  // the wall, so it has to disappear in full screen with the rest of them.
+  // A word is dropped when it cannot be drawn without covering another, which
+  // is what a long word said by many people does: the more often it was said
+  // the larger it is set, and the largest of these is wider than the box.
+  const crowd = [];
+  for (const [word, times] of [
+    ['Zusammenarbeitsvereinbarungsdurchfuehrung', 4],
+    ['Genehmigungsverfahrensbeschleunigungsgesetz', 4],
+    ['Forschungsdatenmanagementrichtlinie', 3],
+  ]) {
+    for (let n = 0; n < times; n += 1) crowd.push(word);
+  }
+  for (const [i, word] of crowd.entries()) {
+    await api(`/api/rooms/${cloudRoom.code}/vote`, {
+      method: 'POST', who: `crowdvoter${String(i).padStart(4, '0')}`, body: { idx: 0, value: word },
+    });
+  }
+  await screen.reload({ waitUntil: 'domcontentloaded' });
+  await screen.waitForSelector('.cloud-svg text', { timeout: 10000 });
+  const left = await screen.evaluate(async () => {
+    await new Promise((r) => setTimeout(r, 800));
+    const box = document.querySelector('.dropped');
+    const said = document.querySelector('.cloud .hint')?.textContent || '';
+    const shown = box && !box.hidden;
+    // The same page, told it is being projected: the tools row goes away and
+    // this list with it, because the room is not the audience for it.
+    document.body.dataset.presenting = 'true';
+    const hiddenWhilePresenting = getComputedStyle(document.querySelector('.present-tools')).display === 'none';
+    document.body.dataset.presenting = 'false';
+    return {
+      shown,
+      listed: box ? box.querySelectorAll('li').length : 0,
+      summary: box?.querySelector('summary')?.textContent || '',
+      said,
+      hiddenWhilePresenting,
+    };
+  });
+  const saidCount = Number((left.said.match(/\d+/) || [])[0]);
+  ok('the words a cloud could not fit are listed for the presenter',
+    left.shown === true && left.listed > 0, left);
+  ok('and the list is as long as the screen says it is',
+    left.listed === saidCount, { listed: left.listed, said: left.said });
+  ok('the count in the summary agrees too',
+    Number((left.summary.match(/\d+/) || [])[0]) === left.listed, left.summary);
+  ok('and the room never sees it, because it goes with the tools in full screen',
+    left.hiddenWhilePresenting === true, left);
 
   await screen.browserContext().close();
   await fetch(`${BASE}/api/rooms/${cloudRoom.code}/admin`, {

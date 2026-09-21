@@ -37,6 +37,12 @@ export function renderPresent(root, { code, adminKey, onHome }) {
   qrBox.append(qr);
 
   const stage = el('section', { class: 'stage' });
+  // The words a cloud could not fit. They belong with the tools rather than on
+  // the stage: the stage is what the room reads, and this is the one thing on
+  // this page that is for the person standing next to it. It disappears in
+  // full screen with everything else in that row.
+  const dropped = el('details', { class: 'dropped', hidden: true });
+  let droppedWords = [];
   const scores = el('section', { class: 'card scores', hidden: true });
   const queue = el('section', { class: 'card moderation', hidden: true });
   const controls = el('div', { class: 'controls' });
@@ -103,7 +109,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     scores,
     queue,
     controls,
-    el('div', { class: 'present-tools' }, [adder, recovery]),
+    el('div', { class: 'present-tools' }, [adder, recovery, dropped]),
     message,
   ]);
 
@@ -237,6 +243,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       ? t('present.expires', { time: formatTime(state.expiresAt) })
       : '';
     drawStage();
+    drawDropped();
     drawQueue();
     drawControls();
     drawScores();
@@ -281,7 +288,14 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     }, [
       el('span', { class: 'score-rank', text: String(i + 1) }),
       el('span', { class: 'score-nick', text: row.nick }),
-      el('span', { class: 'score-points', text: t('present.points', { n: row.score, of: board.of }) }),
+      // With no timed question in the room there is no bonus to explain, so
+      // the board says exactly what it always said: how many were right.
+      el('span', { class: 'score-points' }, board.timed > 0
+        ? [
+          el('span', { text: t('present.points', { n: row.points, of: board.maxPoints }) }),
+          el('span', { class: 'score-right', text: t('present.scoreRight', { n: row.score, of: board.of }) }),
+        ]
+        : [el('span', { text: t('present.points', { n: row.score, of: board.of }) })]),
     ]))));
   }
 
@@ -574,6 +588,12 @@ export function renderPresent(root, { code, adminKey, onHome }) {
 
   function cloudChart(data) {
     const { words, view, dropped } = cloudGeometry(data);
+    // Kept for the tools row. A dropped word is an answer somebody gave that
+    // nobody can read, and saying "three more did not fit" without ever being
+    // able to see which three is only half an admission.
+    droppedWords = dropped
+      .map((key) => data.items.find((item) => item.key === key))
+      .filter(Boolean);
 
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
@@ -609,6 +629,25 @@ export function renderPresent(root, { code, adminKey, onHome }) {
         ? el('p', { class: 'hint', text: t('present.cloudDropped', { n: dropped.length }) })
         : null,
     ]);
+  }
+
+  function drawDropped() {
+    // Only a cloud can drop anything, and drawStage has just told us whether
+    // this one did: anything else leaves the list from the previous question
+    // sitting under a chart it has nothing to do with.
+    if (state.question?.type !== 'cloud') droppedWords = [];
+    dropped.hidden = droppedWords.length === 0;
+    if (dropped.hidden) return;
+    clear(dropped);
+    dropped.append(
+      el('summary', { text: t('present.droppedTitle', { n: droppedWords.length }) }),
+      el('div', { class: 'recovery-body' }, [
+        el('p', { class: 'hint', text: t('present.droppedHint') }),
+        el('ul', { class: 'dropped-list' }, droppedWords.map((word) => el('li', {
+          text: `${word.label} · ${t('present.responses', { n: word.count })}`,
+        }))),
+      ]),
+    );
   }
 
   function drawQueue() {
@@ -723,7 +762,8 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       }
     });
     if (data.scores) {
-      data.scores.rows.forEach((row) => rows.push(['', 'scoreboard', 'score', row.nick, row.score, 'of ' + data.scores.of]));
+      data.scores.rows.forEach((row) => rows.push(['', 'scoreboard', 'score', row.nick, row.score,
+        'of ' + data.scores.of + (data.scores.timed > 0 ? `, ${row.points} points of ${data.scores.maxPoints}` : '')]));
     }
     return rows.map((row) => row.map(cell).join(',')).join('\r\n');
   }

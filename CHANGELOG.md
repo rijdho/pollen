@@ -4,6 +4,52 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A speed bonus on the scoreboard.** A right answer scores a hundred, and on
+  a question with a countdown it is worth up to fifty more in proportion to the
+  time still on the clock when the vote reached the object. The instant is
+  taken where the vote is stored and never from anything a phone says about its
+  own clock. A question without a countdown pays nothing, because with no clock
+  there is nothing to be fast against, and a room whose quiz is untimed sees
+  exactly the board it saw before. The number of right answers is still there,
+  under the points, because it is what the room came to find out.
+- **The words a word cloud could not fit are now readable.** The screen has
+  always said how many were left out; the presenter can now see which, in a
+  list that sits with the tools and therefore disappears in full screen. The
+  room never reads it: a dropped word is an answer somebody gave, and saying
+  "three more did not fit" while nobody can ever see the three was half an
+  admission.
+
+### Fixed
+
+- **The rules that keep the Spanish and the German from addressing the reader
+  were written for the instances they had already caught.** Four Spanish
+  strings passed them in plain sight ("Pregunte algo", "Empiece usted.",
+  "Suya", "le quedan {n} preguntas"), and so did the German "Ihren Raum", which
+  the list did not name although it named Ihr and Ihre. Two more Spanish
+  strings were found by the widened rule. The pronouns and clitics are matched
+  as a class now, in any case; the Spanish imperative cannot be, since it is
+  spelled exactly like a third-person subjunctive, so that half stays an
+  explicit list and says why. Where "su" or "le" really is a third person the
+  string is named along with who it refers to, and a test fails if one of those
+  exemptions stops matching.
+- The browser harness reports what the server answered, not only the status. A
+  run died once on a room that would not open and there was nothing in the
+  message to say why; the next run passed, and the failure could not be read.
+
+### Notes
+
+- Decided rather than built: audience questions keep their approval queue,
+  since one of them is a whole sentence and a cloud entry is one to three
+  words. It is no longer an open question in the conventions file.
+- 111 unit tests, 174 live checks and 88 browser checks, on the Worker and on
+  Node. Three defects were planted for the new checks and each was caught: not
+  recording a question's own start, a bonus formula that never pays, and a list
+  of dropped words that never appears.
+
 ## [1.6.0] - 2026-09-21
 
 Version DOI: [10.5281/zenodo.22875685](https://doi.org/10.5281/zenodo.22875685)

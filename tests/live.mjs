@@ -417,6 +417,48 @@ console.log('ranking, and the tally on phones');
   check('but not when the question does not', hidden.status === 403, hidden);
 }
 
+console.log('the speed bonus on a timed quiz question');
+{
+  const before = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.scores;
+  const added = await call(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey,
+    body: { action: 'add', payload: { question: { type: 'choice', prompt: 'Fast and right', options: ['a', 'b'], correct: [0], seconds: 10 } } },
+  });
+  check('a scored question can carry a countdown', added.status === 200, added);
+  await presenter.next(); await follower.next();
+  const idx = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total - 1;
+  await call(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx } } });
+  await presenter.next(); await follower.next();
+
+  // Ana answers at once. Bob answers the same thing three seconds later, and
+  // sends a time of his own to be ignored: the object stores its own.
+  await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('quiz-ana'), body: { idx, value: [0] } });
+  await presenter.next();
+  await new Promise((r) => setTimeout(r, 3000));
+  await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('quiz-bob'), body: { idx, value: [0], at: 1 } });
+  await presenter.next();
+
+  const board = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.scores;
+  const ana = board.rows.find((r) => r.nick === 'Ana');
+  const bob = board.rows.find((r) => r.nick === 'Bob');
+  const anaWas = before.rows.find((r) => r.nick === 'Ana').score;
+  const bobWas = before.rows.find((r) => r.nick === 'Bob').score;
+  check('both of them got this one right',
+    ana.score === anaWas + 1 && bob.score === bobWas + 1, { ana, bob, anaWas, bobWas });
+  // The bonus each earned, with the base for their right answers taken out.
+  const anaBonus = ana.points - ana.score * 100;
+  const bobBonus = bob.points - bob.score * 100;
+  check('the one who answered first is paid more for it',
+    anaBonus > bobBonus, { anaBonus, bobBonus });
+  check('and a time the phone sends is ignored, as it has to be',
+    bobBonus > 0 && bobBonus < 50, { bobBonus });
+  check('only the question with a clock can pay a bonus',
+    board.timed === 1 && board.maxPoints === board.of * 100 + 50,
+    { timed: board.timed, of: board.of, maxPoints: board.maxPoints });
+  check('the board is ordered by points',
+    board.rows.every((r, i) => i === 0 || board.rows[i - 1].points >= r.points), board.rows);
+}
+
 console.log('a choice with its last option left open');
 {
   const refused = await call(`/api/rooms/${code}/admin`, {

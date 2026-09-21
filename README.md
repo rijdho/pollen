@@ -45,7 +45,10 @@ running:
   drawn where it actually falls, plus the median and the number of answers.
 - **Word cloud.** One to three short entries per person, merged by spelling, then packed on
   a spiral so it reads as a cloud rather than a list. Two words never overlap; one that
-  cannot be fitted is reported rather than dropped in silence. The layout is deterministic,
+  cannot be fitted is reported rather than dropped in silence, and the presenter can read
+  which ones those were, in a list that sits with the tools and disappears when the screen
+  goes full screen, because that list is for the person next to the screen and not for the
+  room. The layout is deterministic,
   which matters more than it sounds: the screen redraws on every vote, and a cloud that
   reshuffles each time is unreadable.
 - **Ranking.** Two to eight things put in order, reordered on the phone with buttons rather
@@ -70,6 +73,14 @@ Any multiple-choice question can be given a right answer, which turns it into a 
 presenter reveals the answer when they choose, and a scoreboard appears for whoever
 entered a name. Any question can be given a countdown, timed by the server so it cannot be
 extended from a phone.
+
+A right answer scores a hundred, and on a question that has a countdown it is worth up to
+fifty more for arriving early. The clock is read where the vote is stored, inside the
+object, and never from anything a phone says about its own: a device that lies about when
+it answered is describing a room it is not in. A question with no countdown pays no bonus
+at all, because with no clock there is nothing to be fast against, and the board still
+shows how many answers were actually right underneath the points, which is what the room
+came to find out.
 
 ![The projected screen during audience questions. Four questions from the room, ordered by
 support: "How do you fund the repository after the grant ends?" with 3, "What happens to
@@ -306,10 +317,10 @@ their browser's local storage and nowhere else.
 ## Tests
 
 ```bash
-npm test          # 105 unit tests, no dependencies, Node's own runner
+npm test          # 111 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
-npm run live      # 168 end-to-end checks against the running Worker
-npm run ui        # 81 checks driving the real pages in a real browser
+npm run live      # 174 end-to-end checks against the running Worker
+npm run ui        # 88 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
@@ -325,7 +336,7 @@ covers the wiring: that a set saves, that a room opens, that a phone is never ha
 right answer, that the scoreboard fills, and that a recovery link hands the room to a device
 that had nothing.
 
-The suite was checked against twenty-eight deliberately planted defects and killed all of
+The suite was checked against thirty-one deliberately planted defects and killed all of
 them, including one round of it that killed only sixteen and exposed a test asserting
 something it did not mean. A later check written as `A || B` with a `B` that was always true
 passed while proving nothing at all, and was hiding a real leak of the right answers to
@@ -337,6 +348,17 @@ file was over two kilobytes. A picture of nothing at all is still a PNG of more 
 kilobytes, so the check passed with the drawing removed. It counts the pixels that are not
 the background now, and asserts the image is the box on the screen at exactly twice the
 size.
+
+And once more, in the checks that keep the German and the Spanish from addressing the
+reader the way the English does. Both were lists of the forms that had already been found:
+eleven capitalised Spanish verbs, and three of the cases of the German polite possessive.
+Four Spanish strings and one German one sat in the catalogue passing them, including
+"Ihren Raum", which the list did not name although it named Ihr and Ihre. The pronouns and
+clitics are a class and are matched as one now; the Spanish imperative cannot be, because
+it is spelled exactly like a third-person subjunctive, so that half stays a list and says
+so. Where "su" or "le" really is a third person, the string is named with who it refers
+to, and a test fails if one of those exemptions stops matching, so it cannot outlive the
+string it was written for.
 
 A later check earned its keep immediately: nothing a room can type may push the page
 sideways, tested with the longest unbroken word each cap allows, on the projector at two

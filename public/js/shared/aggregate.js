@@ -182,6 +182,30 @@ export function tallyRank(votes, optionCount) {
 }
 
 /**
+ * What one answer to a scored question is worth.
+ *
+ * A right answer is a hundred, and on a question with a countdown it is worth
+ * up to fifty more, in proportion to the time still on the clock when the vote
+ * reached the object. The Worker measures that arrival itself and never reads
+ * a time a phone reports, because a phone can say whatever it likes about when
+ * it answered.
+ *
+ * A question with no countdown pays no bonus at all, and that is not an
+ * oversight: with no clock there is nothing to be fast against, and rewarding
+ * whoever happened to answer before the presenter moved on would be scoring
+ * the room's attention span rather than its answers.
+ */
+export const RIGHT_POINTS = 100;
+export const SPEED_POINTS = 50;
+
+export function answerPoints(right, msLeft, msLimit) {
+  if (!right) return 0;
+  if (!(msLimit > 0)) return RIGHT_POINTS;
+  const left = Math.min(Math.max(msLeft, 0), msLimit);
+  return RIGHT_POINTS + Math.round(SPEED_POINTS * (left / msLimit));
+}
+
+/**
  * Font weight for a cloud entry, as a 0..1 position between the rarest and the
  * commonest word. Square root, not linear: one word said twenty times in a
  * room of twenty otherwise renders every other word as unreadable dust.

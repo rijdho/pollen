@@ -112,22 +112,81 @@ test('the assembled prefixes are real, not a blanket exemption', () => {
 // English sentence by sentence, which produced formal address throughout and
 // calques like "vea llegar las respuestas". Infinitives, impersonal `se`,
 // passives and noun phrases instead.
+// This was a list of eleven capitalised verbs until 2026-09-21, which is a rule
+// written for the instances it had already seen rather than for the class.
+// Four Spanish strings walked through it in plain sight, and so did a German
+// one, because the list named Ihr and Ihre but not Ihren. What follows is in
+// two halves, because Spanish only lets one of them be mechanical.
+//
+// The pronouns and clitics ARE the class, and they are matched whatever their
+// case. What they cannot do is tell a third person from the reader: "su" is
+// both "their" and the polite "your", and "le" is both an indirect object and
+// the person being spoken to. So the few strings where the third person really
+// is a third person are named below, with who they refer to, and the test
+// after this one fails if one of them stops matching. An exemption cannot
+// outlive the string it was written for.
+const ES_PRONOUNS = /\b(usted|ustedes|suyo|suya|suyos|suyas|su|sus|le|les)\b/i;
+// The other half cannot be a class at all: an usted imperative is spelled
+// exactly like a third-person subjunctive, so "tantas como haga falta" and
+// "Haga clic" are the same form. This stays a list, and it is matched only
+// capitalised, which is where an imperative to the reader actually lands in a
+// catalogue of labels and hints. Widening it to any case put two innocent
+// strings in the dock, which is how a guard gets switched off.
+const ES_IMPERATIVES = /\b(Haga|Vea|Elija|Escriba|Ponga|Revise|Espere|Int[eé]ntelo|A[ñn]ada|Exporte|Act[ií]velo|Marque|Pregunte|Empiece|Comparta|Pulse|Toque|Introduzca|Seleccione|Recuerde|Podr[áa])\b/;
+const ES_THIRD_PERSON = {
+  'editor.showResultsHint': 'su móvil: the phone belonging to "cada persona"',
+  'editor.imageFailed_detail': 'Le pasa a una diapositiva, not to the reader',
+  'present.closed': 'sus respuestas: the room\'s own',
+};
+
+const addressesEs = (value) => ES_PRONOUNS.test(value) || ES_IMPERATIVES.test(value);
+
 test('the Spanish never addresses the reader', () => {
-  const forms = /\b(Haga|Vea|Elija|Escriba|Ponga|Revise|Espere|Int[eé]ntelo|Añada|Exporte|Actívelo|Marque|Usted|Podrá|Su |Sus )\b/;
   const offenders = Object.entries(STRINGS.es)
-    .filter(([, value]) => forms.test(value))
+    .filter(([key, value]) => addressesEs(value) && !(key in ES_THIRD_PERSON))
     .map(([key]) => key);
   assert.deepEqual(offenders, [],
-    'these use the usted imperative or possessive; the rest of the family does not');
+    'these use the usted imperative, pronoun or possessive; the rest of the family does not');
+});
+
+test('the Spanish exemptions are real, not a blanket', () => {
+  for (const [key, why] of Object.entries(ES_THIRD_PERSON)) {
+    assert.ok(key in STRINGS.es, `${key} is gone; remove its exemption (${why})`);
+    assert.ok(addressesEs(STRINGS.es[key]),
+      `${key} no longer matches the rule, so its exemption hides nothing (${why})`);
+  }
+});
+
+test('the rule catches the forms that once walked through it', () => {
+  // Every one of these was in the catalogue and passed the old check. A rule
+  // that cannot fail on the strings that caused it to be rewritten is not a
+  // rule, it is a memory.
+  for (const planted of [
+    'Pregunte algo', 'Todavía nadie ha preguntado. Empiece usted.', 'Suya',
+    'le quedan {n} preguntas', 'Volver a abrir su sala',
+    'No puede apoyar su propia pregunta.',
+  ]) {
+    assert.ok(addressesEs(planted), `${planted} should be refused`);
+  }
+  // And it still lets the register the family actually writes through.
+  for (const fine of [
+    'Volver a abrir la sala', 'Preguntar algo', 'Propia', 'quedan {n} preguntas',
+    'Se pueden añadir tantas como haga falta.', 'Una pregunta propia no se puede apoyar.',
+  ]) {
+    assert.ok(!addressesEs(fine), `${fine} should pass`);
+  }
 });
 
 test('the German never addresses the reader', () => {
-  const forms = /\b(Sie|Ihre|Ihr|Ihnen|Bitte)\b/;
+  // The whole paradigm, not the three cases that happened to be in the
+  // catalogue: Ihren walked through the old list and was in home.resume.
+  const forms = /\b(Sie|Ihr|Ihre|Ihrem|Ihren|Ihrer|Ihres|Ihnen|Bitte)\b/;
   const offenders = Object.entries(STRINGS.de)
     .filter(([, value]) => forms.test(value))
     .map(([key]) => key);
   assert.deepEqual(offenders, [],
-    'these use Sie, Ihr or Bitte; the rest of the family uses infinitives and passives');
+    'these use Sie, Ihr in some case, or Bitte; the rest of the family uses infinitives and passives');
+  assert.ok(forms.test('Ihren Raum wieder öffnen'), 'the case that got through before is covered');
 });
 
 test('and the English does, because that is the language it was written in', () => {

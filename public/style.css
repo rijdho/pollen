@@ -550,7 +550,11 @@ a { color: var(--brand); }
   width: 1.6em; text-align: right; font-variant-numeric: tabular-nums;
 }
 .score-nick { flex: 1 1 auto; font-weight: 500; }
-.score-points { font-family: var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.score-points { font-family: var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+/* How many were actually right, under the points. The points order the board;
+   this is the number the room came to find out, and it does not shrink to
+   nothing just because somebody else was faster. */
+.score-right { display: block; font-size: .75rem; opacity: .8; }
 .score-row.leading .score-nick { color: var(--brand); font-weight: 600; }
 .score-row.leading .score-points { color: var(--brand); }
 
@@ -588,11 +592,16 @@ a { color: var(--brand); }
 /* --- presenter tools ------------------------------------------------------ */
 
 .present-tools { display: flex; flex-wrap: wrap; gap: .75rem; }
-.adder, .recovery {
+/* Words the cloud could not fit, listed for the person next to the screen.
+   Room-typed, so the same two halves as everywhere else: the column may shrink
+   and the word may break. */
+.dropped-list { margin: .5rem 0 0; padding-left: 1.1rem; min-width: 0; }
+.dropped-list li { overflow-wrap: anywhere; }
+.adder, .recovery, .dropped {
   border: 1px solid var(--hairline); border-radius: var(--r);
   background: var(--surface); padding: .6rem .9rem; flex: 1 1 18rem;
 }
-.adder summary, .recovery summary {
+.adder summary, .recovery summary, .dropped summary {
   cursor: pointer; font-family: var(--mono); font-size: .8125rem;
   font-weight: 600; letter-spacing: .02em; color: var(--ink-2);
 }

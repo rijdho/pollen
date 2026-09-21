@@ -7,7 +7,7 @@
 
 import { LIMITS } from '../../public/js/shared/limits.js?v=2';
 import { sanitiseText, wordCount, cloudKey } from '../../public/js/shared/sanitize.js?v=2';
-import { tallyChoice, tallyScale, tallyCloud, tallyRank, tallyWritten, percentages } from '../../public/js/shared/aggregate.js?v=2';
+import { tallyChoice, tallyScale, tallyCloud, tallyRank, tallyWritten, percentages, answerPoints, RIGHT_POINTS, SPEED_POINTS } from '../../public/js/shared/aggregate.js?v=2';
 import { readImage } from '../../public/js/shared/image.js?v=2';
 
 const SCHEMA = `
@@ -350,30 +350,56 @@ export class Room {
    * One point per question answered exactly right. Exactly: on a question that
    * allows several answers, picking three of four correct options is not
    * three-quarters right, it is a different answer.
+   *
+   * Where a question has a countdown, a right answer is also worth up to half
+   * as much again for arriving early, measured here from the instant the
+   * object started the question to the instant it stored the vote. Nothing a
+   * phone says about its own clock is read, and nothing can be earned on a
+   * question that has no clock.
+   *
+   * `score` stays what it has always been, the number of right answers, and is
+   * what the room actually came to find out; `points` is what orders the
+   * board. A room whose quiz is untimed sees exactly what it saw before,
+   * because `timed` is zero and the screen then has nothing extra to show.
    */
   scoreboard() {
     const scored = this.scored();
-    const totals = new Map();
+    const tally = new Map();
+    let timedQuestions = 0;
     for (const q of scored) {
       const want = JSON.stringify(q.spec.correct);
+      const limit = (q.spec.seconds || 0) * 1000;
+      const startedAt = this.meta(`startedAt:${q.idx}`);
+      // A room that was already running when this was deployed has no start
+      // recorded for its questions, and simply pays no bonus.
+      const timed = limit > 0 && typeof startedAt === 'number';
+      if (timed) timedQuestions += 1;
       for (const r of this.sql.exec(
-        "SELECT voter, value FROM votes WHERE q = ? AND state = 'ok'", q.idx).toArray()) {
+        "SELECT voter, value, at FROM votes WHERE q = ? AND state = 'ok' AND seq = 0", q.idx).toArray()) {
         const picks = JSON.parse(r.value);
         const got = JSON.stringify([...new Set(Array.isArray(picks) ? picks : [picks])].sort((a, b) => a - b));
-        if (!totals.has(r.voter)) totals.set(r.voter, 0);
-        if (got === want) totals.set(r.voter, totals.get(r.voter) + 1);
+        if (!tally.has(r.voter)) tally.set(r.voter, { score: 0, points: 0 });
+        const row = tally.get(r.voter);
+        const right = got === want;
+        if (right) row.score += 1;
+        row.points += answerPoints(right, timed ? startedAt + limit - r.at : 0, timed ? limit : 0);
       }
     }
     const nicks = new Map(this.sql.exec('SELECT voter, nick FROM voters').toArray()
       .map((r) => [r.voter, r.nick]));
-    const rows = [...totals.entries()]
-      .map(([voter, score]) => ({ nick: nicks.get(voter) || null, score }))
+    const rows = [...tally.entries()]
+      .map(([voter, t]) => ({ nick: nicks.get(voter) || null, score: t.score, points: t.points }))
       // Only people who chose a name appear. Someone who never entered one has
       // not agreed to be on a wall in front of the room.
       .filter((r) => r.nick)
-      .sort((a, b) => b.score - a.score || a.nick.localeCompare(b.nick))
+      .sort((a, b) => b.points - a.points || b.score - a.score || a.nick.localeCompare(b.nick))
       .slice(0, LIMITS.quiz.boardSize);
-    return { of: scored.length, rows };
+    return {
+      of: scored.length,
+      timed: timedQuestions,
+      maxPoints: scored.length * RIGHT_POINTS + timedQuestions * SPEED_POINTS,
+      rows,
+    };
   }
 
   pending(idx) {
@@ -593,6 +619,11 @@ export class Room {
       // The clock is the server's, not the phone's. A countdown driven by the
       // device would let anyone answer late by moving their own clock back.
       this.setMeta('startedAt', now);
+      // The same instant, kept under the question's own key. `startedAt` is
+      // the question showing now and is overwritten the moment the room moves
+      // on, so the scoreboard would have nothing left to measure a vote's
+      // arrival against once the quiz reached the end.
+      if (idx >= 0) this.setMeta(`startedAt:${idx}`, now);
       this.setMeta('revealed', false);
     } else if (action === 'lock') {
       this.setMeta('locked', Boolean(payload.locked));
