@@ -116,6 +116,32 @@ export function tallyCloud(entries) {
 }
 
 /**
+ * The open option on a multiple choice: what the room wrote for itself.
+ *
+ * Folding is the word cloud's, exactly, and for the same reason: "coffee",
+ * "Coffee" and "coffee " are one answer with three spellings, and three bars
+ * saying the same word is a chart that misreads its own room. The label shown
+ * is the spelling most people typed.
+ *
+ * The list is then cut to `max`, because this tally is pushed to the presenter
+ * on every vote and the fixed options bound it at eight. What is cut is not
+ * thrown away: `more` says how many distinct answers are past the cap and
+ * `moreAnswers` how many people they are, so the screen can say so and the
+ * export can carry all of them.
+ */
+export function tallyWritten(texts, max) {
+  const { items, total } = tallyCloud(texts);
+  const keep = Math.max(0, max);
+  const rest = items.slice(keep);
+  return {
+    items: items.slice(0, keep),
+    more: rest.length,
+    moreAnswers: rest.reduce((a, b) => a + b.count, 0),
+    total,
+  };
+}
+
+/**
  * Ranking. Each vote is a full ordering of the options, so the result is the
  * average position each one was put in: lower is better, and 1.0 would mean
  * every single person put it first.

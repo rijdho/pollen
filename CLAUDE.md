@@ -29,6 +29,27 @@ Pushing results to the room, or letting phones poll, blows the free daily allowa
 a single workshop (the README has the arithmetic). If a change makes the room receive
 anything per-vote, it has changed the cost model, not just the feature.
 
+### The open option is bounded on purpose
+
+A multiple choice can leave its last option open, and what the room writes then becomes a
+bar. That puts room-typed text into the one payload that is pushed on every single vote,
+which is exactly the thing the whole design exists to keep small, so two bounds hold it:
+
+- **Written answers fold before they are counted**, on the word cloud's key, so a hundred
+  people typing one answer three ways are one bar and not three.
+- **Only the ten commonest are sent**, `LIMITS.choice.maxWritten`, with the tail counted as
+  a number. The export takes a different path (`results(q, true)`) and is not capped at
+  all, because a download is pushed to nobody. Raising the cap is a cost decision, not a
+  layout one; raising it to Infinity for the live tally would hand the room a way to grow
+  the presenter's every message.
+
+Two smaller decisions worth not re-deriving. The text is a **second row** for the same
+voter (`seq 1`) rather than a field inside the pick row, so every reader of that table
+that predates it keeps working, and it is deleted before it is rewritten so that changing
+your mind can take the text back. And **an open option and a right answer are refused
+together** at creation: a written answer cannot be right or wrong unless somebody judges
+it, and the scoreboard counts itself.
+
 ## Three departures from the family, all deliberate
 
 - **The corner radius is 8px / 4px, not the family's 14px / 9px**, and the bars follow it
@@ -151,7 +172,7 @@ mentions any of the tallying or input functions, or contains a second copy of th
 policy, which it parses from `public/_headers` instead.
 
 Proved rather than claimed: `POLLEN_BASE=http://127.0.0.1:8789 npm run live` and the same
-for `npm run ui` pass all 155 and all 77 checks against the Node server, which are the
+for `npm run ui` pass all 168 and all 81 checks against the Node server, which are the
 suites that pass against the Worker. Re-proved on 2026-09-21.
 
 **The variable is `POLLEN_BASE`.** Every harness reads that name and nothing else, so a run
@@ -286,11 +307,11 @@ Zenodo does not mint one until it has processed the GitHub release. `main` there
 ahead of the tag by that record and by whatever notes were written afterwards, which is
 the normal state here and not work waiting to be released.
 
-    npm test        101 unit tests, no server needed
+    npm test        105 unit tests, no server needed
     npm run dev     wrangler on http://127.0.0.1:8788
     npm run serve   the same tool on Node, no Cloudflare
-    npm run live    155 checks against a running server    (needs dev or serve)
-    npm run ui      77 checks driving the pages in a browser (needs a server + Chrome)
+    npm run live    168 checks against a running server    (needs dev or serve)
+    npm run ui      81 checks driving the pages in a browser (needs a server + Chrome)
 
 `npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
 `npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first
@@ -302,7 +323,8 @@ Durable Object state lives in `.wrangler/state` and is disposable: deleting it a
 restarting `npm run dev` clears the throttle along with every local room.
 
 What exists: five question types (multiple choice, rating scale, ranking, word cloud,
-audience questions with support votes), right answers and a scoreboard, server-timed
+audience questions with support votes), a multiple choice whose last option can be left
+open for the room to write, right answers and a scoreboard, server-timed
 countdowns, questions added to a live room, saved question sets exportable as a file,
 recovery links, results as JSON or CSV, a word cloud downloadable as a picture, an optional
 per-question tally on phones which those who answered read again once the question ends,
@@ -334,8 +356,9 @@ CHANGELOG under their own release heading.
    floor is quality 0.5 in `imagefile.js`; below that text stops being readable, so an
    image that will not fit is refused with a named cause instead.
 
-**No work is unreleased.** v1.5.0 is the last tag; what sits on `main` ahead of it is the
-version DOI record and notes to this file. When the next one is worth a DOI: the concept
+**The open option is unreleased**, and is the one thing on `main` ahead of v1.5.0 that is
+work rather than a note. Everything else ahead of the tag is the version DOI record and
+notes to this file. When the next one is worth a DOI: the concept
 DOI never changes, and the version DOI replaces its predecessor in `CITATION.cff` rather
 than accumulating beside it, because superseded version DOIs live in the CHANGELOG under
 their own release heading.

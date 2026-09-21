@@ -11,7 +11,7 @@ import { imageFromFile } from '../imagefile.js?v=2';
 export const QUESTION_TYPES = ['choice', 'scale', 'rank', 'cloud', 'qa'];
 
 export function blankQuestion(type) {
-  if (type === 'choice') return { type, prompt: '', options: ['', ''], multiple: false, correct: [], seconds: 0, chart: 'bars' };
+  if (type === 'choice') return { type, prompt: '', options: ['', ''], multiple: false, correct: [], open: false, seconds: 0, chart: 'bars' };
   if (type === 'scale') return { type, prompt: '', steps: 5, labels: { min: '', max: '' } };
   if (type === 'qa') return { type, prompt: '', moderation: true };
   if (type === 'rank') return { type, prompt: '', options: ['', '', ''], seconds: 0, showResults: false };
@@ -142,8 +142,8 @@ export function imageField(q) {
   return box;
 }
 
-export function checkbox(label, checked, onChange) {
-  const input = el('input', { type: 'checkbox', checked, onChange: (event) => onChange(event.target.checked) });
+export function checkbox(label, checked, onChange, disabled = false) {
+  const input = el('input', { type: 'checkbox', checked, disabled, onChange: (event) => onChange(event.target.checked) });
   // No span when there are no words to put in it. An empty one is invisible but
   // not free: `.check` is a flex row with a gap, so it was adding half a rem of
   // dead space beside every option's tick box and pushing the fields out of
@@ -216,16 +216,32 @@ function choiceFields(q) {
   const box = el('div', { class: 'q-body' });
   const redraw = () => {
     clear(box);
+    // The two settings that cannot both be on, wired to each other rather than
+    // through a redraw: redrawing would take the focus off the box just ticked.
+    const marks = [];
+    let openBox = null;
+    const openHint = el('p', { class: 'hint' });
+    const sync = () => {
+      for (const node of marks) node.querySelector('input').disabled = q.open === true;
+      if (openBox) openBox.querySelector('input').disabled = q.correct.length > 0;
+      openHint.textContent = q.correct.length > 0 ? t('editor.openScoredHint') : t('editor.openHint');
+    };
+    // Marking a right answer turns a poll into a quiz. It is a checkbox per
+    // option rather than a mode switch, so a question can be scored without
+    // the presenter having decided that in advance.
+    const mark = (k) => {
+      const node = checkbox('', q.correct.includes(k), (on) => {
+        const next = new Set(q.correct);
+        if (on) next.add(k); else next.delete(k);
+        q.correct = [...next].sort((a, b) => a - b);
+        sync();
+      }, q.open === true);
+      marks.push(node);
+      return node;
+    };
     q.options.forEach((value, k) => {
       box.append(el('div', { class: 'opt-row' }, [
-        // Marking a right answer turns a poll into a quiz. It is a checkbox per
-        // option rather than a mode switch, so a question can be scored without
-        // the presenter having decided that in advance.
-        checkbox('', q.correct.includes(k), (on) => {
-          const next = new Set(q.correct);
-          if (on) next.add(k); else next.delete(k);
-          q.correct = [...next].sort((a, b) => a - b);
-        }),
+        mark(k),
         el('input', {
           class: 'input', type: 'text', value,
           maxlength: String(LIMITS.choice.maxOptionChars),
@@ -251,13 +267,18 @@ function choiceFields(q) {
         onClick: () => { q.options.push(''); redraw(); },
       }));
     }
+    openBox = checkbox(t('editor.openOption'), q.open === true,
+      (on) => { q.open = on; sync(); }, q.correct.length > 0);
     box.append(
       el('p', { class: 'hint', text: t('editor.correctHint') }),
       checkbox(t('editor.multiple'), q.multiple, (on) => { q.multiple = on; }),
+      openBox,
+      openHint,
       chartField(q),
       timerField(q),
       shareResults(q),
     );
+    sync();
   };
   redraw();
   return box;

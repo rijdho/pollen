@@ -4,6 +4,41 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A multiple choice can leave its last option open.** The room then writes an
+  answer nobody listed, up to eighty characters, which is the length every
+  other option already promises. Spellings are merged exactly as a word cloud
+  merges them, so "Coffee", "coffee" and "COFFEE " are one bar labelled the way
+  most people wrote it. The written answers are drawn beside the options and
+  counted in the same percentages, because a room reading "coffee 40%" next to
+  the four answers somebody thought of in advance is reading one chart; what
+  marks them apart is that they carry no letter, since a letter exists so
+  somebody can call out "B" and nothing can be called out that was not on the
+  screen when the room answered.
+- The ten commonest written answers are projected and the rest are counted in a
+  line beneath, for the same reason everything else here is bounded: the tally
+  rides the presenter's socket on every single vote, and the eight fixed
+  options were what kept that payload from growing with the room. The download
+  is not bounded by anything and carries every written answer, because a
+  download is pushed to nobody.
+- It cannot be combined with a right answer, and asking for both is refused
+  when the question is created rather than quietly resolved. A written answer
+  cannot be scored unless somebody judges it, and the scoreboard counts itself.
+
+### Notes
+
+- Written answers are stored as a row of their own beside the row that holds
+  the ticks, so every reader of that table which predates them keeps working
+  unchanged, and changing your mind can take the text back rather than only
+  replace it with other text.
+- 105 unit tests, 168 live checks and 81 browser checks, on the Worker and on
+  Node. Four defects were planted to prove the new checks are not vacuous:
+  throwing the written text away, allowing an open option on a scored question,
+  giving a written bar a letter, and never offering the field on the phone.
+
 ## [1.5.0] - 2026-09-21
 
 Version DOI: [10.5281/zenodo.22874414](https://doi.org/10.5281/zenodo.22874414)

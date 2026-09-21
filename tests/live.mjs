@@ -417,6 +417,80 @@ console.log('ranking, and the tally on phones');
   check('but not when the question does not', hidden.status === 403, hidden);
 }
 
+console.log('a choice with its last option left open');
+{
+  const refused = await call(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey,
+    body: { action: 'add', payload: { question: { type: 'choice', prompt: 'Which one is right?', options: ['Yes', 'No'], correct: [0], open: true } } },
+  });
+  check('an open option and a right answer cannot be asked for together',
+    refused.status === 422, refused);
+
+  const added = await call(`/api/rooms/${code}/admin`, {
+    method: 'POST', key: adminKey,
+    body: { action: 'add', payload: { question: { type: 'choice', prompt: 'How do you feel today?', options: ['Great', 'Fine'], open: true } } },
+  });
+  check('a question can leave its last option open', added.status === 200, added);
+  await presenter.next(); await follower.next();
+  const idx = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.total - 1;
+  await call(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx } } });
+  await presenter.next();
+  const seen = await follower.next();
+  check('a phone is told the question is open', seen.question.spec.open === true, seen.question.spec);
+
+  for (const [voter, value] of [
+    ['open-a', { picks: [0], text: '' }],
+    ['open-b', { picks: [], text: 'Coffee' }],
+    ['open-c', { picks: [], text: 'coffee ' }],
+    ['open-d', { picks: [], text: 'COFFEE' }],
+    ['open-e', { picks: [], text: 'Rain' }],
+  ]) {
+    const r = await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who(voter), body: { idx, value } });
+    if (r.status !== 200) check('an answer to an open question is accepted', false, { voter, r });
+    await presenter.next();
+  }
+
+  const open = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.results;
+  check('what the room wrote is drawn beside what it was offered',
+    open.options.join('|') === 'Great|Fine|Coffee|Rain', open.options);
+  check('three spellings of one answer are one bar',
+    open.counts.join(',') === '1,0,3,1', open.counts);
+  check('and the screen is told where the written ones start',
+    open.writtenFrom === 2, open.writtenFrom);
+  check('the percentages are of every answer, written ones included',
+    open.percentages.reduce((a, b) => a + b, 0) === 100, open.percentages);
+  check('five people answered it', open.voters === 5, open.voters);
+
+  const both = await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('open-f'), body: { idx, value: { picks: [0], text: 'Tea' } } });
+  check('ticking and writing at once is refused where only one answer is allowed',
+    both.status === 400 && both.data.error === 'single_only', both);
+  const nothing = await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('open-f'), body: { idx, value: { picks: [], text: '   ' } } });
+  check('and so is an answer that is only spaces', nothing.status === 400, nothing);
+
+  const long = 'Zusammenarbeitsvereinbarung'.repeat(5);
+  await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('open-g'), body: { idx, value: { picks: [], text: long } } });
+  await presenter.next();
+  const capped = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.results;
+  check('a written answer is cut to the length an option promises',
+    capped.options.some((o) => o.length === 80), capped.options.map((o) => o.length));
+
+  // Changing your mind has to be able to take the text back, not only swap it.
+  await call(`/api/rooms/${code}/vote`, { method: 'POST', voter: who('open-b'), body: { idx, value: { picks: [1], text: '' } } });
+  await presenter.next();
+  const withdrawn = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.results;
+  // Found by its folded form, not by the spelling it happened to be labelled
+  // with: the person who withdrew is the one who wrote the capital C, so the
+  // bar keeps the count of the two who are left and takes their spelling.
+  const coffee = withdrawn.options.findIndex((o) => o.trim().toLowerCase() === 'coffee');
+  check('changing a written answer for a tick takes the text back',
+    coffee !== -1 && withdrawn.counts[coffee] === 2 && withdrawn.counts[1] === 1,
+    { options: withdrawn.options, counts: withdrawn.counts });
+
+  const shared = await call(`/api/rooms/${code}/results?idx=${idx}`, { voter: who('open-a') });
+  check('a phone is not handed the tally of a question that does not share it',
+    shared.status === 403, shared);
+}
+
 console.log('abuse controls');
 {
   const voter = who('flooder');

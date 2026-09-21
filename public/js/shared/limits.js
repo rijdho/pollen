@@ -42,6 +42,18 @@ export const LIMITS = {
   choice: {
     maxOptions: 8,
     maxOptionChars: 80,
+    // The last option can be left open, and then the room writes an answer
+    // nobody thought of in advance. It is capped at maxOptionChars like any
+    // other option, because it becomes one: it is drawn as a bar, read from
+    // the back of a room, and the width tests already promise that length.
+    //
+    // How many written answers the screen carries, though, is a cost decision
+    // rather than a layout one. The tally rides the presenter's socket on
+    // every single vote, and the fixed options bound it at eight; an unbounded
+    // list of write-ins would make that payload grow with the room. The ones
+    // past this cap are counted in a line under the bars and are all in the
+    // export, so nothing is lost, only not projected.
+    maxWritten: 10,
   },
   scale: {
     minSteps: 2,

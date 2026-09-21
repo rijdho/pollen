@@ -291,6 +291,8 @@ export function renderJoin(root, { code }) {
     const picked = new Set();
     const buttons = [];
     const box = el('div', { class: 'choices' });
+    let own = null;
+    const mark = () => buttons.forEach((node, k) => node.setAttribute('aria-pressed', picked.has(k) ? 'true' : 'false'));
     spec.options.forEach((label, i) => {
       const button = el('button', {
         class: 'choice', type: 'button', 'aria-pressed': 'false', text: label,
@@ -300,21 +302,38 @@ export function renderJoin(root, { code }) {
           } else {
             picked.clear();
             picked.add(i);
+            // One answer means one answer. Ticking withdraws what was written
+            // rather than adding to it, because the room refuses both and a
+            // phone should not be able to build a vote it will be told off for.
+            if (own) own.value = '';
           }
-          buttons.forEach((node, k) => node.setAttribute('aria-pressed', picked.has(k) ? 'true' : 'false'));
+          mark();
         },
       });
       buttons.push(button);
       box.append(button);
     });
+    if (spec.open) {
+      own = el('input', {
+        class: 'input input-own', type: 'text', autocomplete: 'off',
+        maxlength: String(LIMITS.choice.maxOptionChars),
+        placeholder: t('join.ownPlaceholder'), 'aria-label': t('join.ownLabel'),
+        onInput: () => {
+          if (!spec.multiple && own.value.trim() !== '') { picked.clear(); mark(); }
+        },
+      });
+    }
     return el('div', {}, [
       el('p', { class: 'hint', text: spec.multiple ? t('join.chooseMany') : t('join.chooseOne') }),
       box,
+      own ? el('label', { class: 'field-label', text: t('join.ownLabel') }) : null,
+      own,
       el('button', {
         class: 'btn btn-brand btn-lg btn-block', type: 'button', text: t('join.submit'),
         onClick: () => {
-          if (picked.size === 0) { status(message, t('error.empty'), 'error'); return; }
-          send([...picked]);
+          const text = own ? own.value.trim() : '';
+          if (picked.size === 0 && text === '') { status(message, t('error.empty'), 'error'); return; }
+          send(spec.open ? { picks: [...picked], text } : [...picked]);
         },
       }),
     ]);

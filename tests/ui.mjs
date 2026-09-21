@@ -530,6 +530,49 @@ await page.evaluate(async () => {
   await new Promise((r) => setTimeout(r, 400));
 });
 
+// The last option left open: the room writes an answer nobody listed, and it
+// has to arrive on the projector as a bar like any other. The letter is the
+// one thing it cannot carry, because a letter exists so that somebody can call
+// out "B" and nothing can be called out that was not on the screen.
+{
+  const before = await api(`/api/rooms/${room.code}/state`, { key: room.key });
+  await api(`/api/rooms/${room.code}/admin`, {
+    method: 'POST', key: room.key,
+    body: { action: 'add', payload: { question: { type: 'choice', prompt: 'How do you feel today?', options: ['Great', 'Fine'], open: true } } },
+  });
+  await api(`/api/rooms/${room.code}/admin`, {
+    method: 'POST', key: room.key, body: { action: 'goto', payload: { idx: before.total } },
+  });
+
+  const written = await phone.evaluate(async () => {
+    await new Promise((r) => setTimeout(r, 1000));
+    const field = document.querySelector('.input-own');
+    if (!field) return { field: false };
+    field.value = 'Caffeinated';
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('.join-stage .btn-block').click();
+    await new Promise((r) => setTimeout(r, 1000));
+    return { field: true, sent: !!document.querySelector('.sent') };
+  });
+  ok('a phone can write an answer of its own', written.field === true && written.sent === true, written);
+
+  const board = await page.evaluate(async () => {
+    await new Promise((r) => setTimeout(r, 800));
+    return [...document.querySelectorAll('.bar-row')].map((row) => ({
+      name: row.querySelector('.bar-name')?.textContent,
+      key: row.querySelector('.bar-key')?.textContent,
+      written: row.classList.contains('is-written'),
+    }));
+  });
+  const mine = board.find((row) => row.name === 'Caffeinated');
+  ok('it lands on the projector beside the options it was offered',
+    !!mine && mine.written === true, board);
+  ok('and carries no letter, because nobody could have called it out',
+    !!mine && mine.key === '', board);
+  ok('while the options written in advance keep theirs',
+    board.filter((row) => !row.written).every((row) => row.key.length === 1), board);
+}
+
 // No page ever reads as a stringified nothing. DOM append() turns a null child
 // into the word "null", and it reached a screen three times: twice on the
 // presenter view and once on the home page, which this check was not looking at
@@ -962,10 +1005,11 @@ await strangerContext.close();
         { type: 'scale', prompt, steps: 10, labels: { min: option, max: option } },
         { type: 'rank', prompt, options: [option, 'b', 'c'] },
         { type: 'qa', prompt, moderation: false },
+        { type: 'choice', prompt, options: [option, 'short'], open: true },
       ],
     },
   });
-  const names = ['bars', 'donut', 'dots', 'scale', 'rank', 'audience questions'];
+  const names = ['bars', 'donut', 'dots', 'scale', 'rank', 'audience questions', 'an open option'];
 
   // A vote only counts for the question the room is on, so each one is opened
   // before it is answered rather than filling the room up front.
@@ -979,6 +1023,10 @@ await strangerContext.close();
       for (const v of [2, 5, 9]) await api(`/api/rooms/${wide.code}/vote`, { method: 'POST', who: `wide-voter-${i}${v}`, body: { idx: i, value: v } });
     } else if (names[i] === 'rank') {
       await api(`/api/rooms/${wide.code}/vote`, { method: 'POST', who: `wide-voter-${i}`, body: { idx: i, value: [0, 1, 2] } });
+    } else if (names[i] === 'an open option') {
+      // The worst case this feature can produce: a bar whose label the room
+      // typed, as long as an option may be, with nowhere to break.
+      await api(`/api/rooms/${wide.code}/vote`, { method: 'POST', who: `wide-voter-${i}`, body: { idx: i, value: { picks: [], text: long(LIMITS_OPTION) } } });
     } else {
       await api(`/api/rooms/${wide.code}/vote`, { method: 'POST', who: `wide-voter-${i}`, body: { idx: i, value: long(LIMITS_QA) } });
     }

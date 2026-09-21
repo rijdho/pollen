@@ -7,7 +7,7 @@
 
 import { LIMITS } from '../../public/js/shared/limits.js?v=2';
 import { sanitiseText, wordCount, cloudKey } from '../../public/js/shared/sanitize.js?v=2';
-import { tallyChoice, tallyScale, tallyCloud, tallyRank } from '../../public/js/shared/aggregate.js?v=2';
+import { tallyChoice, tallyScale, tallyCloud, tallyRank, tallyWritten, percentages } from '../../public/js/shared/aggregate.js?v=2';
 import { readImage } from '../../public/js/shared/image.js?v=2';
 
 const SCHEMA = `
@@ -238,13 +238,17 @@ export class Room {
     };
   }
 
-  results(q) {
+  /**
+   * `whole` is for the export and nothing else. The cap on written answers is
+   * a cost decision about a payload pushed on every vote, and a download is
+   * pushed to nobody: a room that wrote forty different answers gets all forty
+   * in the file, and only the screen is spared them.
+   */
+  results(q, whole = false) {
     const rows = this.sql.exec(
-      "SELECT voter, value FROM votes WHERE q = ? AND state = 'ok'", q.idx).toArray();
+      "SELECT voter, seq, value FROM votes WHERE q = ? AND state = 'ok'", q.idx).toArray();
     if (q.type === 'choice') {
-      const byVoter = new Map();
-      for (const r of rows) byVoter.set(r.voter, JSON.parse(r.value));
-      return { type: 'choice', options: q.spec.options, ...tallyChoice([...byVoter.values()], q.spec.options.length) };
+      return this.choiceResults(q, rows, whole ? Infinity : LIMITS.choice.maxWritten);
     }
     if (q.type === 'scale') {
       const byVoter = new Map();
@@ -258,6 +262,46 @@ export class Room {
       return { type: 'rank', options: q.spec.options, ...tallyRank([...byVoter.values()], q.spec.options.length) };
     }
     return { type: 'cloud', ...tallyCloud(rows.map((r) => JSON.parse(r.value))) };
+  }
+
+  /**
+   * A multiple choice, plus whatever the room wrote for itself when the last
+   * option was left open.
+   *
+   * The written answers become options: same shape, same bars, counted in the
+   * same percentages. A room reading "coffee 40%" beside the four answers
+   * somebody thought of in advance is reading one chart, and splitting it into
+   * two would be the tool insisting on a distinction the room does not have.
+   * What does mark them apart is `writtenFrom`, the index they start at, which
+   * is all the screen needs in order to leave the letter off a row nobody can
+   * call out loud.
+   *
+   * Percentages are taken over every answer, including the ones past the cap,
+   * so the bars shown add up to less than a hundred exactly when a line under
+   * them says how many are missing. Rounding as if the tail did not exist
+   * would be a chart quietly rewriting its own denominator.
+   */
+  choiceResults(q, rows, max) {
+    const byVoter = new Map();
+    for (const r of rows) if (r.seq === 0) byVoter.set(r.voter, JSON.parse(r.value));
+    const base = tallyChoice([...byVoter.values()], q.spec.options.length);
+    if (q.spec.open !== true) return { type: 'choice', options: q.spec.options, ...base };
+
+    const written = tallyWritten(rows.filter((r) => r.seq === 1).map((r) => JSON.parse(r.value)), max);
+    const counts = [...base.counts, ...written.items.map((i) => i.count)];
+    const tail = written.moreAnswers;
+    const shares = percentages(tail > 0 ? [...counts, tail] : counts);
+    return {
+      type: 'choice',
+      options: [...q.spec.options, ...written.items.map((i) => i.label)],
+      counts,
+      percentages: shares.slice(0, counts.length),
+      voters: base.voters,
+      responses: base.responses + written.total,
+      writtenFrom: q.spec.options.length,
+      writtenMore: written.more,
+      writtenMoreAnswers: written.moreAnswers,
+    };
   }
 
   /**
@@ -374,6 +418,7 @@ export class Room {
 
   writeSingle(q, voter, value, now) {
     let stored;
+    let written = '';
     if (q.type === 'rank') {
       const order = Array.isArray(value) ? value : [];
       const seen = new Set(order.filter((i) => Number.isInteger(i) && i >= 0 && i < q.spec.options.length));
@@ -384,10 +429,27 @@ export class Room {
       }
       stored = order;
     } else if (q.type === 'choice') {
-      const picks = [...new Set((Array.isArray(value) ? value : [value])
+      // A question whose last option is open is answered with { picks, text };
+      // every other one is answered with the array it has always been. Both
+      // shapes are read here, so a phone holding an older page is not refused
+      // for a change it could not know about.
+      const body = value && typeof value === 'object' && !Array.isArray(value) ? value : { picks: value };
+      const picks = [...new Set((Array.isArray(body.picks) ? body.picks : [body.picks])
         .filter((v) => Number.isInteger(v) && v >= 0 && v < q.spec.options.length))];
-      if (picks.length === 0) return { error: 'empty', status: 400 };
-      if (!q.spec.multiple && picks.length > 1) return { error: 'single_only', status: 400 };
+      // Sanitised and capped exactly like an option, because it becomes one:
+      // it is drawn as a bar and read from the back of a room. A question that
+      // is not open ignores any text sent to it rather than storing something
+      // nothing will ever show.
+      written = q.spec.open === true
+        ? sanitiseText(String(body.text ?? ''), LIMITS.choice.maxOptionChars)
+        : '';
+      if (picks.length === 0 && written === '') return { error: 'empty', status: 400 };
+      // Where only one answer is allowed, writing one IS the answer, so
+      // writing and ticking is two answers and gets the same refusal as
+      // ticking twice.
+      if (!q.spec.multiple && picks.length + (written === '' ? 0 : 1) > 1) {
+        return { error: 'single_only', status: 400 };
+      }
       stored = picks;
     } else {
       const v = Number(value);
@@ -399,6 +461,18 @@ export class Room {
     this.sql.exec(
       "INSERT OR REPLACE INTO votes (q, voter, seq, value, state, at) VALUES (?, ?, 0, ?, 'ok', ?)",
       q.idx, voter, JSON.stringify(stored), now);
+    // The written answer is a row of its own rather than a field inside the
+    // one above, so every reader of this table that predates it keeps working
+    // unchanged. Deleted before it is written: changing your mind has to be
+    // able to take the text back, not only replace it with other text.
+    if (q.type === 'choice') {
+      this.sql.exec('DELETE FROM votes WHERE q = ? AND voter = ? AND seq = 1', q.idx, voter);
+      if (written !== '') {
+        this.sql.exec(
+          "INSERT INTO votes (q, voter, seq, value, state, at) VALUES (?, ?, 1, ?, 'ok', ?)",
+          q.idx, voter, JSON.stringify(written), now);
+      }
+    }
     return { ok: true };
   }
 
@@ -563,7 +637,7 @@ export class Room {
         prompt: q.prompt,
         type: q.type,
         spec: q.spec,
-        results: this.results(q),
+        results: this.results(q, true),
       })),
       // Present only when something in the room had a right answer, so an
       // opinion poll's export does not carry an empty scoreboard implying one.
@@ -821,10 +895,21 @@ function prepareQuestionBody(q) {
     // How the projector draws it. Bars unless asked otherwise: they are the
     // most legible of the three from the back of a room.
     const chart = ['bars', 'donut', 'dots'].includes(q.chart) ? q.chart : 'bars';
+    // The last option can be left open, and then the room writes an answer
+    // nobody listed. Never on a question that has a right answer: a written
+    // answer cannot be right or wrong unless somebody judges it, and the
+    // scoreboard is counted without anybody judging anything. Refused rather
+    // than silently dropped, so a set asking for both is told which of the two
+    // it cannot have.
+    const open = q.open === true;
+    if (open && correct.length > 0) return null;
     return {
       type: 'choice',
       prompt,
-      spec: { options, multiple: Boolean(q.multiple), correct, seconds, chart, showResults: q.showResults === true },
+      spec: {
+        options, multiple: Boolean(q.multiple), correct, seconds, chart,
+        open, showResults: q.showResults === true,
+      },
     };
   }
 

@@ -19,11 +19,13 @@ handing an audience to a commercial platform.
 Available in **English, German and Spanish** (auto-detected, switchable), with a light
 and a dark theme.
 
-![The projected screen during a multiple-choice question. The join address and the room
-code fill the left of the header, a QR code sits beside it, and the counter reads 12
-answering. Below, the question "Which of these worries you most?" with three lettered
-bars: A Cost at 33% with 4 answers, B Time at 25% with 3, and C "Nobody reads it" at 42%
-with 5, the leader picked out in violet.](docs/presenter-choice.png)
+![The projected screen during a multiple-choice question whose last option was left open.
+The join address and the room code fill the left of the header, a QR code sits beside it,
+and the counter reads 15 answering. Below, the question "Which of these worries you most?"
+with three lettered bars: A Cost at 27% with 4 answers, B Time at 20% with 3, and C "Nobody
+reads it" at 33% with 5, the leader picked out in violet. Under them, two answers the room
+wrote for itself, in italics and without letters: "Reviewer time" at 13% with 2 and "Losing
+the data" at 7% with 1.](docs/presenter-choice.png)
 
 ## What it does
 
@@ -31,7 +33,14 @@ Five kinds of question, added when the room is created or at any point while it 
 running:
 
 - **Multiple choice.** Up to eight options, single or multiple selection. Bars with whole
-  percentages that add up to exactly 100.
+  percentages that add up to exactly 100. The last option can be left open, and then the
+  room writes an answer nobody listed: up to eighty characters, merged by spelling the way
+  a word cloud merges, drawn as bars beside the options and carrying no letter, because a
+  letter is there so somebody can call out "B" and nothing can be called out that was not
+  on the screen when the room answered. The ten commonest written answers are projected
+  and the rest are counted in a line under them; the download carries every one. It cannot
+  be combined with a right answer: a written answer cannot be scored unless somebody
+  judges it, and the scoreboard counts itself.
 - **Rating scale.** Two to ten steps with labels at each end. Histogram with the mean
   drawn where it actually falls, plus the median and the number of answers.
 - **Word cloud.** One to three short entries per person, merged by spelling, then packed on
@@ -297,10 +306,10 @@ their browser's local storage and nowhere else.
 ## Tests
 
 ```bash
-npm test          # 101 unit tests, no dependencies, Node's own runner
+npm test          # 105 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
-npm run live      # 155 end-to-end checks against the running Worker
-npm run ui        # 77 checks driving the real pages in a real browser
+npm run live      # 168 end-to-end checks against the running Worker
+npm run ui        # 81 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
@@ -316,7 +325,7 @@ covers the wiring: that a set saves, that a room opens, that a phone is never ha
 right answer, that the scoreboard fills, and that a recovery link hands the room to a device
 that had nothing.
 
-The suite was checked against twenty-four deliberately planted defects and killed all of
+The suite was checked against twenty-eight deliberately planted defects and killed all of
 them, including one round of it that killed only sixteen and exposed a test asserting
 something it did not mean. A later check written as `A || B` with a `B` that was always true
 passed while proving nothing at all, and was hiding a real leak of the right answers to

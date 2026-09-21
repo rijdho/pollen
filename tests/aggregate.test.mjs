@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { percentages, tallyChoice, tallyScale, tallyCloud, tallyRank, cloudWeight } from '../public/js/shared/aggregate.js?v=2';
+import { percentages, tallyChoice, tallyScale, tallyCloud, tallyWritten, tallyRank, cloudWeight } from '../public/js/shared/aggregate.js?v=2';
 
 test('percentages always sum to exactly 100', () => {
   // The case that makes naive rounding visible on a projector: three equal
@@ -125,4 +125,37 @@ test('two equally ranked options are ordered by first places, then stably', () =
   assert.equal(t.rows[0].average, 1.5);
   assert.equal(t.rows[1].average, 1.5);
   assert.deepEqual(tallyRank([[0, 1], [1, 0]], 2), tallyRank([[0, 1], [1, 0]], 2));
+});
+
+test('written answers fold the way a cloud folds, and keep the commonest spelling', () => {
+  const t = tallyWritten(['Coffee', 'coffee', 'COFFEE ', 'tea', 'Tea'], 10);
+  assert.deepEqual(t.items.map((i) => [i.label, i.count]), [['Coffee', 3], ['tea', 2]],
+    'three spellings of one answer are one bar, labelled as most people wrote it');
+  assert.equal(t.total, 5, 'and the total counts answers, not distinct ones');
+  assert.equal(t.more, 0);
+  assert.equal(t.moreAnswers, 0);
+});
+
+test('the cap keeps the commonest and counts the tail rather than dropping it', () => {
+  // Nine people, five different answers, room for two on the screen.
+  const t = tallyWritten(['a', 'a', 'a', 'b', 'b', 'c', 'd', 'e', 'e'], 2);
+  assert.deepEqual(t.items.map((i) => [i.label, i.count]), [['a', 3], ['b', 2]]);
+  assert.equal(t.more, 3, 'three answers are past the cap');
+  assert.equal(t.moreAnswers, 4, 'and four people wrote them');
+  assert.equal(t.items.reduce((n, i) => n + i.count, 0) + t.moreAnswers, t.total,
+    'nothing is lost between the bars and the line under them');
+});
+
+test('an uncapped tally is what the download gets', () => {
+  const t = tallyWritten(['a', 'b', 'c', 'd'], Infinity);
+  assert.equal(t.items.length, 4);
+  assert.equal(t.more, 0);
+});
+
+test('a written answer that folds to nothing is not an answer', () => {
+  // Spaces and invisibles only: the cloud key is empty, so there is no bar to
+  // draw and no room in which somebody meant it.
+  const t = tallyWritten(['   ', '\u200b', 'tea'], 10);
+  assert.deepEqual(t.items.map((i) => i.label), ['tea']);
+  assert.equal(t.total, 1);
 });

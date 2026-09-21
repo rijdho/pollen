@@ -428,17 +428,23 @@ export function renderPresent(root, { code, adminKey, onHome }) {
 
   function choiceChart(question, data) {
     const top = Math.max(...data.counts);
-    return el('div', { class: 'bars' }, data.options.map((label, i) => {
+    // Where the answers the room wrote for itself begin. They are drawn as
+    // bars like any other, and the only difference is that they carry no
+    // letter: a letter is there so somebody can say "B" out loud, and nobody
+    // can call out an answer that was not on the screen when they answered.
+    const writtenFrom = typeof data.writtenFrom === 'number' ? data.writtenFrom : data.options.length;
+    const bars = el('div', { class: 'bars' }, data.options.map((label, i) => {
+      const written = i >= writtenFrom;
       // Only a real leader is marked. With everything tied, nothing leads, and
       // saying otherwise would be the chart inventing a result.
       const leads = data.counts[i] === top && top > 0 && data.counts.filter((c) => c === top).length === 1;
       // Once revealed, being right outranks being popular: the mark goes on
       // the correct option whether or not the room chose it.
       const right = state.revealed && (question.spec.correct || []).includes(i);
-      const classes = ['bar-row', leads ? 'leading' : '', right ? 'is-right' : ''].filter(Boolean).join(' ');
+      const classes = ['bar-row', leads ? 'leading' : '', right ? 'is-right' : '', written ? 'is-written' : ''].filter(Boolean).join(' ');
       return el('div', { class: classes }, [
         right ? el('span', { class: 'right-flag', text: t('present.correct') }) : null,
-        el('span', { class: 'bar-key', 'aria-hidden': 'true', text: LETTERS[i] || String(i + 1) }),
+        el('span', { class: 'bar-key', 'aria-hidden': 'true', text: written ? '' : (LETTERS[i] || String(i + 1)) }),
         el('span', { class: 'bar-name', text: label }),
         el('span', { class: 'bar-value' }, [
           el('span', { class: 'bar-pct', text: data.percentages[i] + '%' }),
@@ -449,6 +455,11 @@ export function renderPresent(root, { code, adminKey, onHome }) {
         ]),
       ]);
     }));
+    // Said out loud rather than swallowed, exactly as the word cloud says how
+    // many words did not fit: an answer past the cap is one somebody gave.
+    return data.writtenMore > 0
+      ? el('div', {}, [bars, el('p', { class: 'hint', text: t('present.writtenMore', { n: data.writtenMore }) })])
+      : bars;
   }
 
   function scaleChart(question, data) {
@@ -694,7 +705,11 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       const n = i + 1;
       const r = q.results;
       if (r.type === 'choice') {
-        r.options.forEach((label, k) => rows.push([n, q.prompt, q.type, label, r.counts[k], r.percentages[k] + '%']));
+        // The written answers are in the same column as the options, because
+        // that is what they are; the detail column is where they say so.
+        const from = typeof r.writtenFrom === 'number' ? r.writtenFrom : r.options.length;
+        r.options.forEach((label, k) => rows.push([n, q.prompt, q.type, label, r.counts[k],
+          r.percentages[k] + '%' + (k >= from ? ', written by the room' : '')]));
       } else if (r.type === 'scale') {
         r.histogram.forEach((count, k) => rows.push([n, q.prompt, q.type, k + 1, count, '']));
         rows.push([n, q.prompt, q.type, 'mean', '', r.mean]);

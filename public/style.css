@@ -391,6 +391,16 @@ a { color: var(--brand); }
 }
 .bar-fill { height: 100%; background: var(--brand); border-radius: var(--r-sm); transition: width .4s ease; opacity: .55; }
 /* The leader is data, not chrome, so it may carry emphasis. */
+/* An answer the room wrote for itself. It carries no letter, because a letter
+   is there so somebody can call out "B" and nothing can be called out that was
+   not on the screen when the room answered; the empty box is hidden rather
+   than left looking like a letter that failed to render. Italic says the rest,
+   and it is the one typographic device this family does not already use for
+   something: a coloured left edge would claim a verdict this row has not been
+   given, and brand violet is chrome and never carries meaning. */
+.bar-row.is-written .bar-key { border-color: transparent; background: none; }
+.bar-row.is-written .bar-name { font-style: italic; }
+
 .bar-row.leading .bar-fill { opacity: 1; }
 .bar-row.leading .bar-key { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
 .bar-row.leading .bar-pct { color: var(--brand); }
@@ -491,7 +501,10 @@ a { color: var(--brand); }
   flex: 1 1 2rem; min-width: 0; padding-left: .25rem; padding-right: .25rem;
   text-align: center; font-family: var(--mono);
 }
-.input-word { font-size: 1.25rem; }
+/* Typed on a phone, at arm's length, by somebody who is also listening to
+   whoever is talking. The word cloud's entry and the open option's field are
+   the same thing under two names. */
+.input-word, .input-own { font-size: 1.25rem; }
 .sent { font-size: 1.25rem; color: var(--brand); font-family: var(--disp); font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {

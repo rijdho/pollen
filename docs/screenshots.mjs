@@ -18,12 +18,15 @@ const OUT = 'docs';
 mkdirSync(OUT, { recursive: true });
 
 const QUESTIONS = [
-  { type: 'choice', prompt: 'Which of these worries you most?', options: ['Cost', 'Time', 'Nobody reads it'] },
+  { type: 'choice', prompt: 'Which of these worries you most?', options: ['Cost', 'Time', 'Nobody reads it'], open: true },
   { type: 'scale', prompt: 'How clear was that session?', steps: 5, labels: { min: 'Not at all', max: 'Completely' } },
   { type: 'cloud', prompt: 'One word for open science', entries: 1 },
   { type: 'qa', prompt: 'What should we cover next?', moderation: true },
 ];
 const CHOICES = [[0], [0], [0], [0], [1], [1], [1], [2], [2], [2], [2], [2]]; // 4 / 3 / 5
+// The last option is left open on that question, so some of the room answers
+// something nobody listed. Two spellings of one answer, to show the folding.
+const WRITTEN = ['Reviewer time', 'reviewer time', 'Losing the data'];
 const RATINGS = [3, 4, 4, 4, 5, 5, 3, 4, 2, 5, 4, 4]; // mean 3.9, median 4
 const WORDS = [
   'Access', 'access', 'Access', 'Access', 'ACCESS',
@@ -132,8 +135,14 @@ await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { a
 for (const [i, pick] of CHOICES.entries()) {
   await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(i), body: { idx: 0, value: pick } });
 }
+for (const [i, text] of WRITTEN.entries()) {
+  await api(`/api/rooms/${code}/vote`, { method: 'POST', who: voter(30 + i), body: { idx: 0, value: { picks: [], text } } });
+}
 await presenter.goto(`${BASE}/p/${code}`, { waitUntil: 'networkidle0' });
-await shot(presenter, 'presenter-choice', { width: 1280, height: 760 });
+// Tall enough to reach the answers the room wrote for itself. Cut at 760 the
+// bars added up to eighty per cent with nothing on screen to say where the
+// rest had gone, which is a screenshot that makes the tool look broken.
+await shot(presenter, 'presenter-choice', { width: 1280, height: 1020 });
 
 await api(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: 1 } } });
 for (const [i, value] of RATINGS.entries()) {
