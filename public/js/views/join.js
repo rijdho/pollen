@@ -113,12 +113,17 @@ export function renderJoin(root, { code }) {
         : null,
     ]);
     if (view.scored) stage.append(nickField());
-    if (view.locked) {
-      stage.append(el('p', { class: 'hint', text: t('join.locked') }));
-      return;
-    }
-    if (secondsLeft() === 0) {
-      stage.append(el('p', { class: 'hint', text: t('join.timeUp') }));
+    // The question is over, by the presenter's hand or by the clock. Whoever
+    // answered it reads the tally here if the question shares one: this is the
+    // moment the numbers mean something, and until now the phone lost the
+    // panel exactly when they stopped moving. The fetch is one per person per
+    // question, the same shape as the one after answering.
+    if (view.locked || secondsLeft() === 0) {
+      stage.append(el('p', { class: 'hint', text: view.locked ? t('join.locked') : t('join.timeUp') }));
+      const tookPart = (sent.get(view.current) || 0) > 0 || (view.mine?.length || 0) > 0;
+      if (tookPart && view.question.spec?.showResults && view.question.type !== 'qa') {
+        stage.append(resultsPanel());
+      }
       return;
     }
     const type = view.question.type;

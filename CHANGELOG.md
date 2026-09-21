@@ -4,6 +4,45 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-21
+
+### Added
+
+- **A word cloud downloads as a picture.** The numbers already came out as JSON
+  and as CSV, but the thing a room remembers about a cloud is the drawing, and a
+  photograph of a projector is not a file anyone can put in a slide. The button
+  is on the cloud and nowhere else, since it is the one export that is about the
+  drawing rather than the tally. What it writes is the cloud that was on the
+  wall: the same layout, at twice the size, in whichever theme the session ran
+  in, with the line about words that did not fit when there were any. One
+  function decides where every word goes and how heavily it is drawn, and both
+  the projected screen and the file read it, so the picture cannot drift into a
+  second opinion about the same answers.
+- **A question that has ended still shows its tally on the phones that answered
+  it.** Where the presenter chose to share the results, a phone fetched them
+  once, at the moment it answered, which is when the numbers are emptiest. When
+  the answers were closed or the clock ran out, the panel was replaced wholesale
+  by one line saying the question was over: the tally disappeared exactly when it
+  became worth reading. It is fetched again at that point, for whoever took part,
+  which is at most one more request per person per question and leaves the cost
+  model where it was.
+
+### Fixed
+
+- `npm run dev` pins the port again. Wrangler's own default had moved to 8787
+  while every harness here reads `POLLEN_BASE` and falls back to 8788, so the
+  documented `npm run live` and `npm run ui` invocations were answering nothing
+  at all.
+
+### Notes
+
+- `npm run ui` is 77 checks and opens five rooms, one more than before, against
+  a creation limit of thirty an hour per address.
+- The new browser checks were each shown to fail with the defect they exist to
+  catch. One of them did not: a check that the downloaded picture was over two
+  kilobytes passed with the drawing removed, because an empty rectangle is still
+  a PNG of that size. It counts the pixels that are not the background now.
+
 ## [1.4.1] - 2026-09-10
 
 Version DOI: [10.5281/zenodo.22691644](https://doi.org/10.5281/zenodo.22691644)

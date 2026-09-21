@@ -85,12 +85,19 @@ donut or as one dot per answer; bars stay the default and the setting says why, 
 comparing a length is easier than comparing an angle from the back of a room.
 
 Results stay on the projector by default. A question can be set to show them on the phones
-as well, and then each person sees the results on their own device once they have answered.
-It costs one extra request per person per question, which is linear and affordable where a
-live feed to every phone would not be; that arithmetic lives here rather than in the
-setting, which now says what happens in the room instead of what it costs to run.
+as well, and then each person sees them on their own device twice: once when they answer,
+and again when the question is closed or its clock runs out. The second moment is the one
+worth reading, because it is when the numbers stop moving, and it is exactly where the panel
+used to vanish and leave a line saying the answers were closed. It costs at most two extra
+requests per person per question, which is linear and affordable where a live feed to every
+phone would not be; that arithmetic lives here rather than in the setting, which says what
+happens in the room instead of what it costs to run.
 
-Results download as JSON or as CSV.
+Results download as JSON or as CSV. A word cloud also downloads as a picture, which is the
+thing a room actually remembers: the same layout that was on the wall, at twice the size so
+it survives a slide, in whichever theme the session ran in, and carrying the line about the
+words that did not fit if there were any. It is the one export that is about the drawing
+rather than the numbers, so the button is on the cloud and nowhere else.
 
 ![The projected screen during a word cloud. Access, Transparency, Reuse and Funding are the
 largest, packed together with smaller words around and between them, several set vertically,
@@ -293,7 +300,7 @@ their browser's local storage and nowhere else.
 npm test          # 101 unit tests, no dependencies, Node's own runner
 npm run dev       # in one terminal
 npm run live      # 155 end-to-end checks against the running Worker
-npm run ui        # 70 checks driving the real pages in a real browser
+npm run ui        # 77 checks driving the real pages in a real browser
 ```
 
 The unit tests cover the parts where a silent mistake would still render: percentages
@@ -309,12 +316,18 @@ covers the wiring: that a set saves, that a room opens, that a phone is never ha
 right answer, that the scoreboard fills, and that a recovery link hands the room to a device
 that had nothing.
 
-The suite was checked against twenty-one deliberately planted defects and killed all of
+The suite was checked against twenty-four deliberately planted defects and killed all of
 them, including one round of it that killed only sixteen and exposed a test asserting
 something it did not mean. A later check written as `A || B` with a `B` that was always true
 passed while proving nothing at all, and was hiding a real leak of the right answers to
 every phone in the room; it is now two separate assertions, and putting the leak back turns
 them red.
+
+The same thing happened to a check on the downloaded word cloud, which asserted that the
+file was over two kilobytes. A picture of nothing at all is still a PNG of more than two
+kilobytes, so the check passed with the drawing removed. It counts the pixels that are not
+the background now, and asserts the image is the box on the screen at exactly twice the
+size.
 
 A later check earned its keep immediately: nothing a room can type may push the page
 sideways, tested with the longest unbroken word each cap allows, on the projector at two

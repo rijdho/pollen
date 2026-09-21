@@ -503,6 +503,33 @@ const rankBoard = await page.evaluate(async () => {
 });
 ok('and the projector shows the average position', rankBoard.length === 3, rankBoard);
 
+// A tally is worth reading when the question is over, which is exactly when the
+// phone used to lose it: closing the answers replaced the whole panel with one
+// line, so the numbers disappeared at the moment they stopped moving.
+await page.evaluate(async () => {
+  [...document.querySelectorAll('.controls .btn')]
+    .find((b) => b.textContent.match(/^Stop answers|Antworten schlie|Cerrar respuestas/))
+    .click();
+  await new Promise((r) => setTimeout(r, 400));
+});
+const afterStop = await phone.evaluate(async () => {
+  await new Promise((r) => setTimeout(r, 900));
+  return {
+    closed: !!document.querySelector('.join-stage .hint'),
+    results: document.querySelector('.phone-results')?.textContent || null,
+  };
+});
+ok('a closed question says so on the phone', afterStop.closed, afterStop);
+ok('and still shows the tally to whoever answered it',
+  typeof afterStop.results === 'string' && afterStop.results.length > 0, afterStop);
+// Back open, so the room is in the state the checks after this one expect.
+await page.evaluate(async () => {
+  [...document.querySelectorAll('.controls .btn')]
+    .find((b) => b.textContent.match(/^Reopen answers|Antworten wieder|Reabrir respuestas/))
+    .click();
+  await new Promise((r) => setTimeout(r, 400));
+});
+
 // No page ever reads as a stringified nothing. DOM append() turns a null child
 // into the word "null", and it reached a screen three times: twice on the
 // presenter view and once on the home page, which this check was not looking at
@@ -672,6 +699,99 @@ const refused = await stranger.evaluate(async () => {
 });
 ok('and without it the presenter view is refused', refused.controls === 0, refused);
 await strangerContext.close();
+
+// The word cloud, taken away as a picture. Like the rescale in imagefile.js
+// this needs a canvas, so Node cannot see any of it: if this block goes, the
+// drawing goes untested wholesale. The file is caught at the blob rather than
+// on disk, which also keeps the run from leaving downloads behind.
+{
+  const cloudRoom = await api('/api/rooms', {
+    method: 'POST',
+    body: { locale: 'en', questions: [{ type: 'cloud', prompt: 'One word for today' }] },
+  });
+  await api(`/api/rooms/${cloudRoom.code}/admin`, {
+    method: 'POST', key: cloudRoom.adminKey, body: { action: 'goto', payload: { idx: 0 } },
+  });
+  // Uneven counts, so the picture has to carry more than one size.
+  for (const [who, word] of [
+    ['cloudvoter0001', 'method'], ['cloudvoter0002', 'method'], ['cloudvoter0003', 'method'],
+    ['cloudvoter0004', 'reuse'], ['cloudvoter0005', 'reuse'], ['cloudvoter0006', 'sharing'],
+  ]) {
+    await api(`/api/rooms/${cloudRoom.code}/vote`, { method: 'POST', who, body: { idx: 0, value: word } });
+  }
+
+  const screen = await newPage(await browser.createBrowserContext());
+  const screenErrors = [];
+  screen.on('pageerror', (e) => screenErrors.push(String(e.message)));
+  await screen.setViewport({ width: 1280, height: 900 });
+  await screen.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await screen.evaluate((c, k) => localStorage.setItem('pollen.rooms', JSON.stringify([{ code: c, adminKey: k, expiresAt: Date.now() + 3600e3 }])), cloudRoom.code, cloudRoom.adminKey);
+  await screen.goto(`${BASE}/p/${cloudRoom.code}`, { waitUntil: 'domcontentloaded' });
+  await screen.waitForSelector('.cloud-svg text', { timeout: 10000 });
+
+  const png = await screen.evaluate(async () => {
+    const drawn = [...document.querySelectorAll('.cloud-svg text')].map((n) => n.textContent);
+    // The box the screen cropped its cloud to. The picture must be that box at
+    // twice the size and nothing else: an image of its own dimensions would be
+    // a second layout, which is exactly what cloudGeometry exists to prevent.
+    const [, , boxW, boxH] = document.querySelector('.cloud-svg').getAttribute('viewBox').split(' ').map(Number);
+    const strip = document.querySelector('.cloud .hint') ? 40 : 0;
+    // The download goes out through a blob URL and an <a>. Borrowing
+    // createObjectURL is the only way to read what was actually drawn without
+    // a file landing in the runner's downloads.
+    let caught = null;
+    const real = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = (blob) => { caught = blob; return real(blob); };
+    const button = [...document.querySelectorAll('.controls .btn')]
+      .find((b) => b.textContent.match(/the cloud|Wolke herunter|la nube/));
+    if (!button) { URL.createObjectURL = real; return { button: false, drawn }; }
+    button.click();
+    for (let i = 0; i < 80 && !caught; i += 1) await new Promise((r) => setTimeout(r, 50));
+    URL.createObjectURL = real;
+    if (!caught) return { button: true, blob: false, drawn };
+
+    const bitmap = await createImageBitmap(caught);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    // A PNG of the right size proves nothing about what is in it: an empty
+    // rectangle would pass every other check here. The top-left corner is
+    // background by construction, so anything far from it is a word.
+    const corner = [pixels[0], pixels[1], pixels[2]];
+    let ink = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (Math.abs(pixels[i] - corner[0]) + Math.abs(pixels[i + 1] - corner[1])
+        + Math.abs(pixels[i + 2] - corner[2]) > 30) ink += 1;
+    }
+    return {
+      button: true, blob: true, drawn,
+      type: caught.type, size: caught.size,
+      width: bitmap.width, height: bitmap.height,
+      expected: { width: Math.round(boxW * 2), height: Math.round((boxH + strip) * 2) },
+      ink, corner, of: pixels.length / 4,
+    };
+  });
+
+  ok('the word cloud comes back as a PNG', png.blob === true && png.type === 'image/png', png);
+  ok('it is the box on the screen, at twice the size, for a slide',
+    png.width === png.expected?.width && png.height === png.expected?.height,
+    { got: [png.width, png.height], expected: png.expected });
+  ok('and it carries the words rather than a blank rectangle',
+    png.ink > 2000 && png.ink < png.of * 0.9, { ink: png.ink, of: png.of });
+  ok('the three answers are on the screen it was taken from',
+    png.drawn.length === 3, png.drawn);
+  ok('the page raised no error drawing it', screenErrors.length === 0, screenErrors);
+
+  await screen.browserContext().close();
+  await fetch(`${BASE}/api/rooms/${cloudRoom.code}/admin`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-pollen-key': cloudRoom.adminKey },
+    body: JSON.stringify({ action: 'close' }),
+  });
+}
 
 // The picture on a question, end to end through a real browser: this is the
 // only place the rescale-and-re-encode loop in imagefile.js can run at all,

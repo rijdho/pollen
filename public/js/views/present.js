@@ -4,6 +4,7 @@ import { api, liveSocket, imageUrl, ApiError } from '../api.js?v=2';
 import { qrSvg } from '../qr.js?v=2';
 import { cloudWeight } from '../shared/aggregate.js?v=2';
 import { layoutCloud } from '../shared/cloudlayout.js?v=2';
+import { cloudPng } from '../cloudimage.js?v=2';
 import { forget } from '../rooms.js?v=2';
 import { blankQuestion, retype, typeLabel, promptField, imageField, typeFields, QUESTION_TYPES } from './qform.js?v=2';
 
@@ -513,7 +514,12 @@ export function renderPresent(root, { code, adminKey, onHome }) {
   // make the same cloud on a laptop and on a projector.
   const CLOUD_BOX = { width: 1200, height: 520 };
 
-  function cloudChart(data) {
+  /**
+   * Where every word goes and how it is drawn, decided once. The projected
+   * screen and the downloaded picture both read this, so a file somebody puts
+   * in a slide cannot disagree with what the room was looking at.
+   */
+  function cloudGeometry(data) {
     const max = data.items[0]?.count || 1;
     const { placed, dropped } = layoutCloud(data.items, {
       ...CLOUD_BOX,
@@ -542,6 +548,22 @@ export function renderPresent(root, { code, adminKey, onHome }) {
         h: bounds.maxY - bounds.minY + margin * 2,
       };
 
+    // Weight and opacity ride with the count as well as size, so the busiest
+    // words read as heavier and not merely bigger.
+    const words = placed.map((word) => {
+      const weight = cloudWeight(word.count, max);
+      return {
+        ...word,
+        fontWeight: Math.round(500 + weight * 300),
+        alpha: Number((0.55 + weight * 0.45).toFixed(2)),
+      };
+    });
+    return { words, view, dropped };
+  }
+
+  function cloudChart(data) {
+    const { words, view, dropped } = cloudGeometry(data);
+
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', `${view.x.toFixed(1)} ${view.y.toFixed(1)} ${view.w.toFixed(1)} ${view.h.toFixed(1)}`);
@@ -549,7 +571,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', data.items.map((i) => `${i.label} ${i.count}`).join(', '));
 
-    for (const word of placed) {
+    for (const word of words) {
       const node = document.createElementNS(NS, 'text');
       node.setAttribute('x', '0');
       node.setAttribute('y', '0');
@@ -558,11 +580,8 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       node.setAttribute('text-anchor', 'middle');
       node.setAttribute('dominant-baseline', 'central');
       node.setAttribute('font-size', String(word.size));
-      // Weight and opacity ride with the count as well as size, so the busiest
-      // words read as heavier and not merely bigger.
-      const weight = cloudWeight(word.count, max);
-      node.setAttribute('font-weight', String(Math.round(500 + weight * 300)));
-      node.setAttribute('opacity', (0.55 + weight * 0.45).toFixed(2));
+      node.setAttribute('font-weight', String(word.fontWeight));
+      node.setAttribute('opacity', String(word.alpha));
       node.setAttribute('fill', 'currentColor');
       node.textContent = word.label;
       const title = document.createElementNS(NS, 'title');
@@ -639,6 +658,12 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       fullscreenButton,
       el('button', { class: 'btn btn-quiet', type: 'button', text: t('present.export'), onClick: download }),
       el('button', { class: 'btn btn-quiet', type: 'button', text: t('present.exportCsv'), onClick: downloadCsv }),
+      // Only on a cloud that has words in it. The button is the one export
+      // that is about the drawing rather than the numbers, so it belongs to
+      // the one question type that draws.
+      state.question?.type === 'cloud' && (state.results?.items || []).length > 0
+        ? el('button', { class: 'btn btn-quiet', type: 'button', text: t('present.cloudImage'), onClick: downloadCloud })
+        : null,
       el('button', {
         class: 'btn btn-quiet', type: 'button', text: t('present.close'),
         onClick: () => { if (confirm(t('present.closeConfirm'))) act('close'); },
@@ -688,14 +713,17 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     return rows.map((row) => row.map(cell).join(',')).join('\r\n');
   }
 
-  function save(text, mime, extension) {
-    const blob = new Blob([text], { type: mime });
+  function saveBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
-    const a = el('a', { href: url, download: `pollen-${code}.${extension}` });
+    const a = el('a', { href: url, download: filename });
     document.body.append(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  function save(text, mime, extension) {
+    saveBlob(new Blob([text], { type: mime }), `pollen-${code}.${extension}`);
   }
 
   async function downloadCsv() {
@@ -711,6 +739,38 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       save(JSON.stringify(await api.exportResults(code, adminKey), null, 2), 'application/json', 'json');
     } catch (err) {
       status(message, t('error.' + (err instanceof ApiError ? err.code : 'internal')), 'error');
+    }
+  }
+
+  /**
+   * The cloud as a picture, drawn from the same layout the screen is showing.
+   * The export above is the numbers; this is the thing a room actually
+   * remembers, and a screenshot of a projector is not a file anyone can use.
+   *
+   * Colours are read off the page rather than named here, so the picture comes
+   * out in whichever theme the room was run in and follows the stylesheet if
+   * the palette ever moves.
+   */
+  async function downloadCloud() {
+    const data = state.results;
+    if (!data || data.type !== 'cloud' || data.items.length === 0) return;
+    try {
+      const { words, view, dropped } = cloudGeometry(data);
+      const body = getComputedStyle(document.body);
+      const drawn = stage.querySelector('.cloud-svg');
+      const blob = await cloudPng({
+        words,
+        view,
+        font: body.getPropertyValue('--disp').trim(),
+        color: drawn ? getComputedStyle(drawn).color : body.color,
+        background: body.backgroundColor,
+        footer: dropped.length > 0 ? t('present.cloudDropped', { n: dropped.length }) : '',
+        footerColor: body.getPropertyValue('--ink-2').trim() || body.color,
+      });
+      if (!blob) throw new Error('no blob');
+      saveBlob(blob, `pollen-${code}-q${state.current + 1}.png`);
+    } catch {
+      status(message, t('error.internal'), 'error');
     }
   }
 

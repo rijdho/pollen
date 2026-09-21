@@ -151,8 +151,8 @@ mentions any of the tallying or input functions, or contains a second copy of th
 policy, which it parses from `public/_headers` instead.
 
 Proved rather than claimed: `POLLEN_BASE=http://127.0.0.1:8789 npm run live` and the same
-for `npm run ui` pass all 155 and all 69 checks against the Node server, which are the
-suites that pass against the Worker.
+for `npm run ui` pass all 155 and all 77 checks against the Node server, which are the
+suites that pass against the Worker. Re-proved on 2026-09-21.
 
 **The variable is `POLLEN_BASE`.** Every harness reads that name and nothing else, so a run
 started with a different one (`POLLEN_ORIGIN`, say) silently falls back to the default
@@ -162,6 +162,12 @@ cheap check is to look at which process holds each port, rather than trusting th
 line: `lsof -ti :8789 -sTCP:LISTEN | xargs ps -o command=`. `server/index.mjs` takes its
 port from `PORT`, not from an argument, so `node server/index.mjs --port 8789` binds 8788
 and collides with wrangler.
+
+**`npm run dev` names its port.** It was a bare `wrangler dev` until 2026-09-21, and
+wrangler's own default had moved to 8787 in the meantime, so the documented `npm run live`
+and `npm run ui` went to 8788, found nothing, and failed as a server that was never
+started. The script passes `--port 8788` now. A default that lives in somebody else's tool
+is not a default this repository has.
 
 ## Room-typed text and the width of a screen
 
@@ -271,31 +277,35 @@ The QR fixture in `tests/fixtures/` was verified once by decoding it with an ind
 implementation (`zxing-cpp`), which read back the exact URL. **Regenerating it without
 decoding the new matrix would make that test vacuous.**
 
-## Where this is, 2026-09-10
+## Where this is, 2026-09-21
 
-Public, released, deployed and citable. All commits pushed. The deployed files are
-byte-identical to the working tree, compared by hash rather than by trusting a deploy log.
+Public, released, deployed and citable. v1.5.0 is the last tag and what runs at
+`pollen.rijdho.org`, with the deployed files compared to the tree by hash rather than by
+trusting a deploy log. Its version DOI lands in the commit after the release, because
+Zenodo does not mint one until it has processed the GitHub release.
 
     npm test        101 unit tests, no server needed
     npm run dev     wrangler on http://127.0.0.1:8788
     npm run serve   the same tool on Node, no Cloudflare
     npm run live    155 checks against a running server    (needs dev or serve)
-    npm run ui      70 checks driving the pages in a browser (needs a server + Chrome)
+    npm run ui      77 checks driving the pages in a browser (needs a server + Chrome)
 
 `npm run ui` and `npm run screenshots` need a Chrome that is not a dependency of this repo:
 `npm i puppeteer --no-save`, or point `CHROME_PATH` at one. Deploying runs `npm test` first
 but not the other two; run all three, against both platforms, before a release.
 
-**`npm run ui` opens four rooms, and the creation limit is thirty an hour per address.**
-Eight runs in an hour exhausts it and the suite stops with a message saying so. Local
+**`npm run ui` opens five rooms, and the creation limit is thirty an hour per address.**
+Six runs in an hour exhausts it and the suite stops with a message saying so. Local
 Durable Object state lives in `.wrangler/state` and is disposable: deleting it and
 restarting `npm run dev` clears the throttle along with every local room.
 
 What exists: five question types (multiple choice, rating scale, ranking, word cloud,
 audience questions with support votes), right answers and a scoreboard, server-timed
 countdowns, questions added to a live room, saved question sets exportable as a file,
-recovery links, results as JSON or CSV, an optional per-question tally on phones, English,
-German and Spanish, light and dark. It runs on Cloudflare and on Node from the same code.
+recovery links, results as JSON or CSV, a word cloud downloadable as a picture, an optional
+per-question tally on phones which those who answered read again once the question ends,
+English, German and Spanish, light and dark. It runs on Cloudflare and on Node from the
+same code.
 
 Live at `https://pollen.rijdho.org`. Concept DOI `10.5281/zenodo.22685893`, which is the
 one to cite and the one on the badge and in the page footer; version DOIs go in the
@@ -322,7 +332,7 @@ CHANGELOG under their own release heading.
    floor is quality 0.5 in `imagefile.js`; below that text stops being readable, so an
    image that will not fit is refused with a named cause instead.
 
-**Nothing is unreleased.** v1.4.1 is the last tag and everything on `main` is in it. When
+**Nothing is unreleased.** v1.5.0 is the last tag and everything on `main` is in it. When
 the next one is worth a DOI: the concept DOI never changes, and the version DOI replaces
 its predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
 version DOIs live in the CHANGELOG under their own release heading.

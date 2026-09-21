@@ -7,7 +7,7 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --port 8788",
     "deploy": "npm test && wrangler deploy",
     "live": "node tests/live.mjs",
     "screenshots": "node docs/screenshots.mjs",
