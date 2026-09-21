@@ -340,6 +340,12 @@ DOI never changes, and the version DOI replaces its predecessor in `CITATION.cff
 than accumulating beside it, because superseded version DOIs live in the CHANGELOG under
 their own release heading.
 
+**Three files carry the version, not two.** `package.json` sat at `0.1.0` through the
+first seven releases, which is what an unpublished private package tends to do, and was
+set to the real number on 2026-09-21. Nothing reads it: not the Worker, not a test, not
+the deploy, which is exactly why it drifts unnoticed. Bump it with the CHANGELOG heading
+and `CITATION.cff`, in the same commit.
+
 Done and not worth redoing: the leak sweep over the working tree and the full object
 history, whose only hits in the entire history are the AGPL's own wording about passwords,
 a README sentence saying the room code is not a secret, and a `.gitignore` line; the GitHub
