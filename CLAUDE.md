@@ -326,7 +326,8 @@ What exists: five question types (multiple choice, rating scale, ranking, word c
 audience questions with support votes), a multiple choice whose last option can be left
 open for the room to write, right answers and a scoreboard with a speed bonus, server-timed
 countdowns, questions added to a live room, saved question sets exportable as a file,
-recovery links, results as JSON or CSV, a word cloud downloadable as a picture, an optional
+recovery links, a right answer correctable on a room already running, results as JSON or CSV,
+a word cloud downloadable as a picture, an optional
 per-question tally on phones which those who answered read again once the question ends,
 English, German and Spanish, light and dark. It runs on Cloudflare and on Node from the
 same code.
@@ -354,13 +355,24 @@ Decided and closed, so they are not debt:
 - **The room cannot attach pictures, only the presenter can** (2026-09-10). An anonymous
   photograph three metres wide has no moderation story and no accountable author, because
   audience items carry a position rather than a device token on purpose.
+- **Only the answer key of a live question is editable** (2026-09-22). Asked for as
+  "editing questions" and narrowed on purpose. A vote is a set of option indices and the key
+  is read beside it, so correcting a key recounts the board and touches nothing else;
+  renaming an option would leave every vote pointing at a position that now reads
+  differently, and removing one would drop its votes silently, because `tallyChoice` counts
+  only indices that still exist and `tallyScale` only values still in range. Neither throws.
+  A quiet undercount on a projector is indistinguishable from a result, which is why the
+  refusal is the feature. Deleting or reordering questions is a separate problem again:
+  `idx` is the key in `votes.q`, `images.idx` and the meta `startedAt:${idx}`, which is why
+  `add` only ever appends.
 - **A picture is capped at 100 KB and 1280 pixels** (`LIMITS.image`), reached by
   re-encoding in the browser rather than by refusing the file. The floor is quality 0.5 in
   `imagefile.js`; below that text stops being readable, so an image that will not fit is
   refused with a named cause instead.
 
-**No work is unreleased.** v1.7.0 is the last tag; what sits on `main` ahead of it is the
-version DOI record and notes to this file. When the next one
+**There is unreleased work on `main` as of 2026-09-22**: the answer key of a running
+question became correctable, which is a feature and so a minor bump when it is cut. v1.7.0
+is the last tag. When the next one
 is worth a DOI: the concept DOI never changes, and the version DOI replaces its
 predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
 version DOIs live in the CHANGELOG under their own release heading.

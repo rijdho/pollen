@@ -6,7 +6,7 @@ import { cloudWeight } from '../shared/aggregate.js?v=2';
 import { layoutCloud } from '../shared/cloudlayout.js?v=2';
 import { cloudPng } from '../cloudimage.js?v=2';
 import { forget } from '../rooms.js?v=2';
-import { blankQuestion, retype, typeLabel, promptField, imageField, typeFields, QUESTION_TYPES } from './qform.js?v=2';
+import { blankQuestion, retype, typeLabel, promptField, imageField, typeFields, checkbox, QUESTION_TYPES } from './qform.js?v=2';
 
 /**
  * The projected screen. It is the only view that sees results, and the only
@@ -69,6 +69,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
   ]);
 
   const adder = el('details', { class: 'adder' });
+  const keyer = el('details', { class: 'adder' });
 
   // Collapsed, the join block is one line instead of a quarter of the screen.
   // The QR is worth its space for the first minute and nothing after it, and at
@@ -109,7 +110,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
     scores,
     queue,
     controls,
-    el('div', { class: 'present-tools' }, [adder, recovery, dropped]),
+    el('div', { class: 'present-tools' }, [adder, keyer, recovery, dropped]),
     message,
   ]);
 
@@ -211,6 +212,45 @@ export function renderPresent(root, { code, adminKey, onHome }) {
   }
   drawAdder();
 
+  /**
+   * Correcting which options are right, on the question showing now.
+   *
+   * The scoreboard is recomputed from the votes and the key on every read, so
+   * a key fixed here fixes every score already standing on it. Nothing else
+   * about a live question can be edited, and the Worker says why.
+   */
+  let keyFor = null;
+  function drawKey() {
+    const q = state.question;
+    // Nothing to mark on a type that cannot be right, and nothing to mark on a
+    // question the room can write into.
+    const usable = Boolean(q) && q.type === 'choice' && q.spec.open !== true;
+    keyer.hidden = !usable;
+    if (!usable) { keyFor = null; return; }
+    // Rebuilt only when the question changes. paint() runs on every vote in
+    // the room, and redrawing this under the presenter's hand would shut the
+    // panel and throw away the boxes they had just ticked.
+    if (keyFor === q.idx) return;
+    keyFor = q.idx;
+    clear(keyer);
+    const picked = new Set(q.spec.correct || []);
+    keyer.append(
+      el('summary', { text: t('present.key') }),
+      el('div', { class: 'adder-body' }, [
+        el('div', { class: 'key-list' }, q.spec.options.map((label, i) => checkbox(
+          (LETTERS[i] || String(i + 1)) + '  ' + label,
+          picked.has(i),
+          (on) => { if (on) picked.add(i); else picked.delete(i); },
+        ))),
+        el('p', { class: 'hint', text: t('present.keyHint') }),
+        el('button', {
+          class: 'btn btn-brand', type: 'button', text: t('present.keySave'),
+          onClick: () => act('correct', { idx: q.idx, correct: [...picked] }),
+        }),
+      ]),
+    );
+  }
+
   let state = null;
 
   async function act(action, payload = {}) {
@@ -243,6 +283,7 @@ export function renderPresent(root, { code, adminKey, onHome }) {
       ? t('present.expires', { time: formatTime(state.expiresAt) })
       : '';
     drawStage();
+    drawKey();
     drawDropped();
     drawQueue();
     drawControls();

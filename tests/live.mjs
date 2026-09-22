@@ -533,6 +533,82 @@ console.log('a choice with its last option left open');
     shared.status === 403, shared);
 }
 
+console.log('correcting which answer is right, on a room already running');
+{
+  const scoreOf = async (nick) => {
+    const board = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.scores;
+    return { score: board.rows.find((r) => r.nick === nick)?.score, of: board.of };
+  };
+  const setKey = async (idx, correct) => {
+    const res = await call(`/api/rooms/${code}/admin`, {
+      method: 'POST', key: adminKey, body: { action: 'correct', payload: { idx, correct } },
+    });
+    if (res.status === 200) { await presenter.next(); await follower.next(); }
+    return res;
+  };
+
+  const all = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.questions;
+  const quiz = all.find((q) => q.prompt === 'Which year?');
+  const openQ = all.find((q) => q.prompt === 'How do you feel today?');
+  const cloud = all.find((q) => q.type === 'cloud');
+
+  // Ana answered the second option and Bob the first, and the key said the
+  // second. Everything below is measured against that.
+  const ana0 = await scoreOf('Ana');
+  const bob0 = await scoreOf('Bob');
+
+  const swapped = await setKey(quiz.idx, [0]);
+  check('the key of a running question can be corrected', swapped.status === 200, swapped);
+  // The point of the whole thing: nobody voted again, and the board moved.
+  check('and every score already standing is counted again from the votes',
+    (await scoreOf('Ana')).score === ana0.score - 1
+    && (await scoreOf('Bob')).score === bob0.score + 1,
+    { ana0, bob0, ana: await scoreOf('Ana'), bob: await scoreOf('Bob') });
+
+  const cleared = await setKey(quiz.idx, []);
+  check('an empty key makes the question a poll again', cleared.status === 200, cleared);
+  check('so it stops being one of the questions the board is out of',
+    (await scoreOf('Ana')).of === ana0.of - 1, { was: ana0.of, now: (await scoreOf('Ana')).of });
+  check('and the answer it had scored is worth nothing',
+    (await scoreOf('Bob')).score === bob0.score, { bob0, bob: await scoreOf('Bob') });
+
+  await setKey(quiz.idx, [1]);
+  check('putting the key back puts the board back',
+    (await scoreOf('Ana')).score === ana0.score
+    && (await scoreOf('Bob')).score === bob0.score
+    && (await scoreOf('Ana')).of === ana0.of, { ana0, bob0 });
+
+  // Moved off the answer first, so that reading [1] back is evidence the write
+  // happened and not evidence that nothing did. The first version of this
+  // check set the stray key while the key was already [1], and it passed
+  // against a planted defect that accepted the action and stored nothing.
+  await setKey(quiz.idx, [0]);
+  const strayed = await setKey(quiz.idx, [1, 7, -2, '0']);
+  check('a key naming an option that is not there keeps only the ones that are',
+    strayed.status === 200
+    && strayed.data.state.questions.length === all.length, strayed.status);
+  await call(`/api/rooms/${code}/admin`, { method: 'POST', key: adminKey, body: { action: 'goto', payload: { idx: quiz.idx } } });
+  await presenter.next(); await follower.next();
+  const stored = (await call(`/api/rooms/${code}/state`, { key: adminKey })).data.question.spec.correct;
+  check('and stores it sorted and clean', JSON.stringify(stored) === '[1]', stored);
+
+  // A key is still the one thing a phone is not told until the reveal, and
+  // writing a new one is not a reveal.
+  const phone = (await call(`/api/rooms/${code}`, { voter: who('quiz-bob') })).data;
+  check('correcting a key does not disclose it',
+    phone.revealed === false && !JSON.stringify(phone.question.spec).includes('correct'),
+    phone.question.spec);
+
+  const notChoice = await setKey(cloud.idx, [0]);
+  check('a word cloud cannot be given a right answer',
+    notChoice.status === 422 && notChoice.data.error === 'not_scorable', notChoice);
+  const openRefused = await setKey(openQ.idx, [0]);
+  check('nor can a question the room writes into',
+    openRefused.status === 422 && openRefused.data.error === 'open_not_scorable', openRefused);
+  const nowhere = await setKey(999, [0]);
+  check('nor can a question that is not there', nowhere.status === 400, nowhere);
+}
+
 console.log('abuse controls');
 {
   const voter = who('flooder');

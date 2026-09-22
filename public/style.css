@@ -608,6 +608,13 @@ a { color: var(--brand); }
 .adder[open] summary, .recovery[open] summary { color: var(--ink); margin-bottom: .6rem; }
 .adder-body, .recovery-body { padding-top: .3rem; }
 
+/* The one tick box whose label is room-length rather than one of this tool's
+   own words: an option may be eighty characters and is not promised a space.
+   The same two halves as everywhere else, and a top alignment, because a tick
+   centred against three wrapped lines sits in the middle of nothing. */
+.key-list .check { align-items: flex-start; }
+.key-list .check span { min-width: 0; overflow-wrap: anywhere; }
+
 /* --- ranking -------------------------------------------------------------- */
 
 /* Sits in the option row's lead column, so it needs no width of its own: one

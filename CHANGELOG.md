@@ -4,6 +4,39 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **The right answer can be corrected while the room is running.** A key marked
+  wrong before anyone joined was, until now, wrong for as long as the room
+  lived: questions could be added to a running room but nothing about one could
+  be changed. The presenter's tools now carry a panel for the question showing
+  now, with a tick box per option and nothing else, and saving it recounts the
+  board from the votes already in. Nobody answers again and the standings move,
+  because a vote is a set of option indices and the key is read beside it rather
+  than stored with it. An emptied key makes the question a poll again and takes
+  it out of what the board is counted out of.
+
+  **This is the only part of a live question that can change, and the limit is
+  the point rather than the scope of a first version.** Renaming an option would
+  leave every vote already cast pointing at a position that now reads
+  differently, and the screen would be correct and lying. Removing one would
+  drop its votes without a word, because a tally counts only the indices that
+  still exist. Neither fails loudly, which is what makes them worse than an
+  error: on a projector a quiet undercount looks exactly like a result. A
+  question that needs those is cleared and asked again.
+
+  A key is refused on anything that cannot carry one, each with its own reason:
+  a type that has no options, and a multiple choice whose last option the room
+  writes into, which is the same refusal that question already gets when it is
+  written asking for both. The normalising of a key now lives in
+  `shared/aggregate.js` and is called from both the question being written and
+  the question being corrected, so the two cannot drift.
+
+  Correcting a key is not a reveal. It is still stripped from every phone until
+  the presenter reveals it, and a test says so.
+
 ## [1.7.0] - 2026-09-21
 
 Version DOI: [10.5281/zenodo.22876205](https://doi.org/10.5281/zenodo.22876205)

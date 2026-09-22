@@ -182,6 +182,26 @@ export function tallyRank(votes, optionCount) {
 }
 
 /**
+ * Which options are right, as the room will store them.
+ *
+ * Two places need this and they must agree: a question being written, and the
+ * key of a question already running being corrected. A vote is a set of option
+ * indices and the key is read beside it rather than stored with it, so a key
+ * that disagreed with itself between those two paths would silently rescore
+ * answers that were never re-cast.
+ *
+ * Out-of-range entries are dropped rather than refused. The caller knows how
+ * many options there are and a key naming an option that is not there says
+ * nothing; an empty result is the honest reading of it, and an empty key is
+ * what makes a question a poll again.
+ */
+export function answerKey(value, optionCount) {
+  return [...new Set((Array.isArray(value) ? value : [])
+    .filter((i) => Number.isInteger(i) && i >= 0 && i < optionCount))]
+    .sort((a, b) => a - b);
+}
+
+/**
  * What one answer to a scored question is worth.
  *
  * A right answer is a hundred, and on a question with a countdown it is worth

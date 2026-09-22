@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { percentages, tallyChoice, tallyScale, tallyCloud, tallyWritten, tallyRank, cloudWeight, answerPoints, RIGHT_POINTS, SPEED_POINTS } from '../public/js/shared/aggregate.js?v=2';
+import { percentages, tallyChoice, tallyScale, tallyCloud, tallyWritten, tallyRank, cloudWeight, answerKey, answerPoints, RIGHT_POINTS, SPEED_POINTS } from '../public/js/shared/aggregate.js?v=2';
 
 test('percentages always sum to exactly 100', () => {
   // The case that makes naive rounding visible on a projector: three equal
@@ -185,4 +185,26 @@ test('a clock that has run out, or one the arithmetic overshoots, stays in range
   // remainder larger than the limit cannot pay more than the whole one.
   assert.equal(answerPoints(true, -4_000, 10_000), RIGHT_POINTS);
   assert.equal(answerPoints(true, 99_000, 10_000), RIGHT_POINTS + SPEED_POINTS);
+});
+
+test('a key is sorted, deduplicated and free of options that are not there', () => {
+  assert.deepEqual(answerKey([3, 1, 1, 0], 4), [0, 1, 3]);
+  // Out of range in both directions, and the shapes a hand-written file brings.
+  assert.deepEqual(answerKey([4, -1, 9], 4), []);
+  assert.deepEqual(answerKey(['1', 1.5, null, undefined, true], 4), []);
+  assert.deepEqual(answerKey(null, 4), []);
+  assert.deepEqual(answerKey('01', 4), []);
+});
+
+test('an empty key is a poll again, and is reachable', () => {
+  // The path that matters for a room already running: a question marked as
+  // scored by mistake has to be able to stop being scored.
+  assert.deepEqual(answerKey([], 4), []);
+});
+
+test('a key cannot name an option a shrinking question no longer has', () => {
+  // The same key read against fewer options drops what fell off the end
+  // rather than indexing past it, which is what tallyChoice does with votes.
+  assert.deepEqual(answerKey([0, 2, 3], 4), [0, 2, 3]);
+  assert.deepEqual(answerKey([0, 2, 3], 2), [0]);
 });

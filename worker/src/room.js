@@ -7,7 +7,7 @@
 
 import { LIMITS } from '../../public/js/shared/limits.js?v=2';
 import { sanitiseText, wordCount, cloudKey } from '../../public/js/shared/sanitize.js?v=2';
-import { tallyChoice, tallyScale, tallyCloud, tallyRank, tallyWritten, percentages, answerPoints, RIGHT_POINTS, SPEED_POINTS } from '../../public/js/shared/aggregate.js?v=2';
+import { tallyChoice, tallyScale, tallyCloud, tallyRank, tallyWritten, percentages, answerKey, answerPoints, RIGHT_POINTS, SPEED_POINTS } from '../../public/js/shared/aggregate.js?v=2';
 import { readImage } from '../../public/js/shared/image.js?v=2';
 
 const SCHEMA = `
@@ -644,6 +644,32 @@ export class Room {
       this.sql.exec('INSERT INTO questions (idx, type, prompt, spec) VALUES (?, ?, ?, ?)',
         idx, prepared.type, prepared.prompt, JSON.stringify(prepared.spec));
       if (prepared.image) this.sql.exec('INSERT INTO images (idx, src) VALUES (?, ?)', idx, prepared.image);
+    } else if (action === 'correct') {
+      // Which options are right, on a question the room is already answering.
+      //
+      // This is the one thing about a live question that can be changed
+      // without making a vote mean something other than what it meant when it
+      // was cast. A vote is a set of option indices; the key is read beside it
+      // and never stored with it, and the board is recomputed on every read.
+      // So a key corrected here corrects every score already standing on it,
+      // which is the whole reason it exists: a wrong key marked before the
+      // room started is otherwise unfixable for as long as the room lives.
+      //
+      // Nothing else about the question may move. Renaming an option would
+      // leave every vote pointing at a position that now reads differently,
+      // and removing one would drop its votes without a word, because
+      // tallyChoice counts only indices that still exist.
+      const questions = this.questions();
+      const idx = Number(payload.idx);
+      const q = Number.isInteger(idx) ? questions[idx] : null;
+      if (!q) return { error: 'no_question', status: 400 };
+      if (q.type !== 'choice') return { error: 'not_scorable', status: 422 };
+      // An option the room writes for itself cannot be right or wrong: the
+      // scoreboard is counted without anybody judging anything. Refused here
+      // for the same reason a question asking for both is refused at creation.
+      if (q.spec.open === true) return { error: 'open_not_scorable', status: 422 };
+      const spec = { ...q.spec, correct: answerKey(payload.correct, q.spec.options.length) };
+      this.sql.exec('UPDATE questions SET spec = ? WHERE idx = ?', JSON.stringify(spec), idx);
     } else if (action === 'reveal') {
       this.setMeta('revealed', Boolean(payload.revealed));
     } else if (action === 'close') {
@@ -919,10 +945,10 @@ function prepareQuestionBody(q) {
       .slice(0, LIMITS.choice.maxOptions);
     if (options.length < 2) return null;
     // Which options are right, if any. An empty list means this is a poll and
-    // there is nothing to be right about, which stays the default.
-    const correct = [...new Set((Array.isArray(q.correct) ? q.correct : [])
-      .filter((i) => Number.isInteger(i) && i >= 0 && i < options.length))]
-      .sort((a, b) => a - b);
+    // there is nothing to be right about, which stays the default. Normalised
+    // in shared/aggregate.js, because the 'correct' action below writes the
+    // same field on a room that is already running.
+    const correct = answerKey(q.correct, options.length);
     // How the projector draws it. Bars unless asked otherwise: they are the
     // most legible of the three from the back of a room.
     const chart = ['bars', 'donut', 'dots'].includes(q.chart) ? q.chart : 'bars';
