@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.8.0] - 2026-09-22
 
+Version DOI: [10.5281/zenodo.22895674](https://doi.org/10.5281/zenodo.22895674)
+
 ### Added
 
 - **The right answer can be corrected while the room is running.** A key marked
