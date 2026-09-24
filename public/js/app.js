@@ -2,15 +2,15 @@
 // browser: the platform serves these files as they are, so what is deployed is
 // what is in the repository, line for line.
 
-import { detectLocale, setLocale, locale, t, LOCALES, LOCALE_NAMES } from './i18n.js?v=3';
-import { el, clear, status } from './ui.js?v=3';
-import { normaliseCode } from './shared/codes.js?v=3';
-import { api, ApiError } from './api.js?v=3';
-import { remember, keyFor } from './rooms.js?v=3';
-import { renderHome } from './views/home.js?v=3';
-import { renderEditor } from './views/editor.js?v=3';
-import { renderPresent } from './views/present.js?v=3';
-import { renderJoin } from './views/join.js?v=3';
+import { detectLocale, setLocale, locale, t, LOCALES, LOCALE_NAMES } from './i18n.js?v=4';
+import { el, clear, status } from './ui.js?v=4';
+import { normaliseCode } from './shared/codes.js?v=4';
+import { api, ApiError } from './api.js?v=4';
+import { remember, keyFor } from './rooms.js?v=4';
+import { renderHome } from './views/home.js?v=4';
+import { renderEditor } from './views/editor.js?v=4';
+import { renderPresent } from './views/present.js?v=4';
+import { renderJoin } from './views/join.js?v=4';
 
 const main = document.getElementById('app');
 let teardown = null;

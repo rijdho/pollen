@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { STRINGS, LOCALES, LOCALE_NAMES } from '../public/js/locales.js?v=3';
+import { STRINGS, LOCALES, LOCALE_NAMES } from '../public/js/locales.js?v=4';
 
 const BASE = 'en';
 const baseKeys = Object.keys(STRINGS[BASE]);

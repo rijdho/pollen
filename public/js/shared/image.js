@@ -20,7 +20,7 @@
 //   - Anything that is not JPEG, PNG or WebP. See LIMITS.image.types.
 //   - Anything over the size cap, measured before it is decoded.
 
-import { LIMITS } from './limits.js?v=3';
+import { LIMITS } from './limits.js?v=4';
 
 const PREFIX = /^data:([a-z]+\/[a-z0-9+.-]+);base64,/;
 

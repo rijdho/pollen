@@ -12,8 +12,8 @@
 // it says why: that case is a slide full of small text, where going lower
 // would hand back something illegible rather than something large.
 
-import { LIMITS } from './shared/limits.js?v=3';
-import { readImage } from './shared/image.js?v=3';
+import { LIMITS } from './shared/limits.js?v=4';
+import { readImage } from './shared/image.js?v=4';
 
 // Tried in order. The first is where an ordinary photograph lands; the last is
 // the floor, below which text stops being readable at the back of a room.

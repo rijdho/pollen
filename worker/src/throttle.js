@@ -5,7 +5,7 @@
 // The address is never stored: the object's own name is a truncated hash of
 // it, and the object holds a count and a timestamp.
 
-import { LIMITS } from '../../public/js/shared/limits.js?v=3';
+import { LIMITS } from '../../public/js/shared/limits.js?v=4';
 
 const WINDOW_MS = 3600_000;
 

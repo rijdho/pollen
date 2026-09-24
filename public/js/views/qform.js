@@ -3,10 +3,10 @@
 // one place is what stops the two from drifting into different rules about
 // what a question may contain.
 
-import { el, clear, appendAll } from '../ui.js?v=3';
-import { t } from '../i18n.js?v=3';
-import { LIMITS } from '../shared/limits.js?v=3';
-import { imageFromFile } from '../imagefile.js?v=3';
+import { el, clear, appendAll } from '../ui.js?v=4';
+import { t } from '../i18n.js?v=4';
+import { LIMITS } from '../shared/limits.js?v=4';
+import { imageFromFile } from '../imagefile.js?v=4';
 
 export const QUESTION_TYPES = ['choice', 'scale', 'rank', 'cloud', 'qa'];
 

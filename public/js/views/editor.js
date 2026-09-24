@@ -1,8 +1,8 @@
-import { el, clear, status, appendAll } from '../ui.js?v=3';
-import { t } from '../i18n.js?v=3';
-import { LIMITS } from '../shared/limits.js?v=3';
-import { QUESTION_TYPES, blankQuestion, retype, typeLabel, typePicker, promptField, imageField, typeFields } from './qform.js?v=3';
-import { saveDeck } from '../decks.js?v=3';
+import { el, clear, status, appendAll } from '../ui.js?v=4';
+import { t } from '../i18n.js?v=4';
+import { LIMITS } from '../shared/limits.js?v=4';
+import { QUESTION_TYPES, blankQuestion, retype, typeLabel, typePicker, promptField, imageField, typeFields } from './qform.js?v=4';
+import { saveDeck } from '../decks.js?v=4';
 
 /**
  * Building the question set. Everything lives in memory until the room is

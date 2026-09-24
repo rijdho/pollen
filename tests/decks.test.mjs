@@ -18,7 +18,7 @@ function useStorage(behaviour = {}) {
   return () => store;
 }
 
-const { saveDeck, allDecks } = await import('../public/js/decks.js?v=3');
+const { saveDeck, allDecks } = await import('../public/js/decks.js?v=4');
 
 function question(imageBytes = 0) {
   return {

@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this tool, please cite it as below."
-title: "pollen"
+title: "Pollen: live questions for a room"
 abstract: >-
   Live audience questions for a talk or a class, with no accounts and nothing
   kept afterwards. Multiple choice, rating scales, rankings, word clouds and

@@ -9,7 +9,7 @@ export const LOCALE_NAMES = { en: 'English', de: 'Deutsch', es: 'Español' };
 
 export const STRINGS = {
   en: {
-    'brand.name': 'pollen',
+    'brand.name': 'Pollen',
     'brand.tagline': 'Live questions for a room',
     'nav.language': 'Language',
     'nav.theme': 'Theme',
@@ -218,7 +218,7 @@ export const STRINGS = {
   },
 
   de: {
-    'brand.name': 'pollen',
+    'brand.name': 'Pollen',
     'brand.tagline': 'Live-Fragen für einen Raum',
     'nav.language': 'Sprache',
     'nav.theme': 'Darstellung',
@@ -427,7 +427,7 @@ export const STRINGS = {
   },
 
   es: {
-    'brand.name': 'pollen',
+    'brand.name': 'Pollen',
     'brand.tagline': 'Preguntas en vivo para una sala',
     'nav.language': 'Idioma',
     'nav.theme': 'Tema',
