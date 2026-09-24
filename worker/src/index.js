@@ -3,9 +3,9 @@
 // 2025-04-01), so everything below is an API call and every one of them is
 // billed. Keep it that way.
 
-import { Room } from './room.js?v=2';
-import { Throttle } from './throttle.js?v=2';
-import { generateCode, normaliseCode } from '../../public/js/shared/codes.js?v=2';
+import { Room } from './room.js?v=3';
+import { Throttle } from './throttle.js?v=3';
+import { generateCode, normaliseCode } from '../../public/js/shared/codes.js?v=3';
 
 export { Room, Throttle };
 

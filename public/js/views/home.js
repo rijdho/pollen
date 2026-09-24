@@ -1,8 +1,8 @@
-import { el, clear, status, appendAll } from '../ui.js?v=2';
-import { t } from '../i18n.js?v=2';
-import { normaliseCode } from '../shared/codes.js?v=2';
-import { myRooms } from '../rooms.js?v=2';
-import { allDecks, deleteDeck, downloadDeck, parseDeckFile, saveDeck } from '../decks.js?v=2';
+import { el, clear, status, appendAll } from '../ui.js?v=3';
+import { t } from '../i18n.js?v=3';
+import { normaliseCode } from '../shared/codes.js?v=3';
+import { myRooms } from '../rooms.js?v=3';
+import { allDecks, deleteDeck, downloadDeck, parseDeckFile, saveDeck } from '../decks.js?v=3';
 
 export function renderHome(root, { onCreate, onJoin, onPresent, onOpenDeck, onRefresh }) {
   clear(root);

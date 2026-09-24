@@ -1,9 +1,9 @@
-import { el, clear, status, appendAll } from '../ui.js?v=2';
-import { t } from '../i18n.js?v=2';
-import { api, liveSocket, ApiError } from '../api.js?v=2';
-import { LIMITS } from '../shared/limits.js?v=2';
-import { wordCount } from '../shared/sanitize.js?v=2';
-import { percentages } from '../shared/aggregate.js?v=2';
+import { el, clear, status, appendAll } from '../ui.js?v=3';
+import { t } from '../i18n.js?v=3';
+import { api, liveSocket, ApiError } from '../api.js?v=3';
+import { LIMITS } from '../shared/limits.js?v=3';
+import { wordCount } from '../shared/sanitize.js?v=3';
+import { percentages } from '../shared/aggregate.js?v=3';
 
 /**
  * The phone. It receives the current question over its socket, never the

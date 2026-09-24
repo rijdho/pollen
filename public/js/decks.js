@@ -5,7 +5,7 @@
 // Nothing here ever reaches the server. A set is only sent when a room is
 // opened from it, and then only as the questions themselves.
 
-import { LIMITS } from './shared/limits.js?v=2';
+import { LIMITS } from './shared/limits.js?v=3';
 
 const KEY = 'pollen.decks';
 const FORMAT = 'pollen.deck/1';

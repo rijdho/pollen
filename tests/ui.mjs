@@ -16,7 +16,7 @@
 import puppeteer from 'puppeteer';
 import { statSync, rmSync } from 'node:fs';
 import { makePhotoPng, makeNoisePng } from './pngfixture.mjs';
-import { LIMITS } from '../public/js/shared/limits.js?v=2';
+import { LIMITS } from '../public/js/shared/limits.js?v=3';
 
 // Taken from the caps rather than written out, so the check keeps testing the
 // longest thing the tool actually accepts if a cap ever moves.

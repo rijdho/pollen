@@ -210,7 +210,9 @@ export const STRINGS = {
     'error.offline': 'No connection. Your answer was not sent.',
     'error.forbidden': 'This device is not the presenter for that room.',
 
-    'footer.by': 'by',
+    'footer.by': 'By',
+    'footer.license': 'Code under AGPL-3.0',
+    'footer.source': 'Source on GitHub',
     'footer.cite': 'Cite this tool',
     'footer.privacy': 'No accounts, no cookies, no analytics.',
   },
@@ -417,7 +419,9 @@ export const STRINGS = {
     'error.offline': 'Keine Verbindung: die Antwort wurde nicht gesendet.',
     'error.forbidden': 'Dieses Gerät ist nicht die vortragende Person dieses Raums.',
 
-    'footer.by': 'von',
+    'footer.by': 'Von',
+    'footer.license': 'Code unter AGPL-3.0',
+    'footer.source': 'Quellcode auf GitHub',
     'footer.cite': 'Dieses Werkzeug zitieren',
     'footer.privacy': 'Keine Konten, keine Cookies, keine Analyse.',
   },
@@ -624,7 +628,9 @@ export const STRINGS = {
     'error.offline': 'Sin conexión: la respuesta no se ha enviado.',
     'error.forbidden': 'Este dispositivo no es el que presenta esa sala.',
 
-    'footer.by': 'por',
+    'footer.by': 'Por',
+    'footer.license': 'Código bajo AGPL-3.0',
+    'footer.source': 'Código en GitHub',
     'footer.cite': 'Citar esta herramienta',
     'footer.privacy': 'Sin cuentas, sin cookies, sin analítica.',
   },

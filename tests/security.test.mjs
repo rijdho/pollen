@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { sanitiseText, cloudKey } from '../public/js/shared/sanitize.js?v=2';
-import { normaliseCode } from '../public/js/shared/codes.js?v=2';
-import { parseDeckFile } from '../public/js/decks.js?v=2';
-import { readImage } from '../public/js/shared/image.js?v=2';
-import { LIMITS } from '../public/js/shared/limits.js?v=2';
+import { sanitiseText, cloudKey } from '../public/js/shared/sanitize.js?v=3';
+import { normaliseCode } from '../public/js/shared/codes.js?v=3';
+import { parseDeckFile } from '../public/js/decks.js?v=3';
+import { readImage } from '../public/js/shared/image.js?v=3';
+import { LIMITS } from '../public/js/shared/limits.js?v=3';
 
 // Payloads that would run if any of this reached a page as markup rather than
 // as text. They are asserted to survive as inert characters, NOT to be escaped
@@ -105,7 +105,7 @@ test('nothing anywhere parses a string as markup or as code', () => {
 });
 
 test('el() refuses to be handed markup at all', async () => {
-  const { el } = await import('../public/js/ui.js?v=2');
+  const { el } = await import('../public/js/ui.js?v=3');
   assert.throws(() => el('div', { html: '<b>x</b>' }), /markup is never inserted/);
 });
 

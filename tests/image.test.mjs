@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { readImage, base64Bytes } from '../public/js/shared/image.js?v=2';
-import { LIMITS } from '../public/js/shared/limits.js?v=2';
+import { readImage, base64Bytes } from '../public/js/shared/image.js?v=3';
+import { LIMITS } from '../public/js/shared/limits.js?v=3';
 
 /** A data URI whose payload decodes to exactly `bytes` bytes. */
 function payload(bytes, mime = 'image/webp') {

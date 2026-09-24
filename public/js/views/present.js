@@ -1,12 +1,12 @@
-import { el, clear, status, appendAll } from '../ui.js?v=2';
-import { t, locale } from '../i18n.js?v=2';
-import { api, liveSocket, imageUrl, ApiError } from '../api.js?v=2';
-import { qrSvg } from '../qr.js?v=2';
-import { cloudWeight } from '../shared/aggregate.js?v=2';
-import { layoutCloud } from '../shared/cloudlayout.js?v=2';
-import { cloudPng } from '../cloudimage.js?v=2';
-import { forget } from '../rooms.js?v=2';
-import { blankQuestion, retype, typeLabel, promptField, imageField, typeFields, checkbox, QUESTION_TYPES } from './qform.js?v=2';
+import { el, clear, status, appendAll } from '../ui.js?v=3';
+import { t, locale } from '../i18n.js?v=3';
+import { api, liveSocket, imageUrl, ApiError } from '../api.js?v=3';
+import { qrSvg } from '../qr.js?v=3';
+import { cloudWeight } from '../shared/aggregate.js?v=3';
+import { layoutCloud } from '../shared/cloudlayout.js?v=3';
+import { cloudPng } from '../cloudimage.js?v=3';
+import { forget } from '../rooms.js?v=3';
+import { blankQuestion, retype, typeLabel, promptField, imageField, typeFields, checkbox, QUESTION_TYPES } from './qform.js?v=3';
 
 /**
  * The projected screen. It is the only view that sees results, and the only

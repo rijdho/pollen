@@ -4,7 +4,7 @@
 // The encoder is vendored (MIT, see vendor/qrcode-generator.js). This file is
 // only the part worth testing: the size chosen, the quiet zone, and the path.
 
-import qrcode from './vendor/qrcode-generator.js?v=2';
+import qrcode from './vendor/qrcode-generator.js?v=3';
 
 /**
  * @param {string} text

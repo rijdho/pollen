@@ -5,10 +5,10 @@
 // Everything a participant sends is re-checked here. The browser's maxlength
 // is a courtesy; this file is the boundary.
 
-import { LIMITS } from '../../public/js/shared/limits.js?v=2';
-import { sanitiseText, wordCount, cloudKey } from '../../public/js/shared/sanitize.js?v=2';
-import { tallyChoice, tallyScale, tallyCloud, tallyRank, tallyWritten, percentages, answerKey, answerPoints, RIGHT_POINTS, SPEED_POINTS } from '../../public/js/shared/aggregate.js?v=2';
-import { readImage } from '../../public/js/shared/image.js?v=2';
+import { LIMITS } from '../../public/js/shared/limits.js?v=3';
+import { sanitiseText, wordCount, cloudKey } from '../../public/js/shared/sanitize.js?v=3';
+import { tallyChoice, tallyScale, tallyCloud, tallyRank, tallyWritten, percentages, answerKey, answerPoints, RIGHT_POINTS, SPEED_POINTS } from '../../public/js/shared/aggregate.js?v=3';
+import { readImage } from '../../public/js/shared/image.js?v=3';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);

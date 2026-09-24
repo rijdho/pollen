@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The footer signs off like every other tool in the family**: author with ORCID, licence,
+  source and the concept DOI, in the interface language. Assets move to `?v=3`.
+
 ## [1.8.0] - 2026-09-22
 
 Version DOI: [10.5281/zenodo.22895674](https://doi.org/10.5281/zenodo.22895674)
