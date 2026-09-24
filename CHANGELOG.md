@@ -6,12 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.9.0]: 2026-09-24
+
 ### Changed
 
 - **The name is capitalised, Pollen,** where a reader meets it: the page title, the header, the README and
   `CITATION.cff`. The repository and the URL stay `pollen`. Assets move to `?v=4`.
-
-### Changed
 
 - **The footer signs off like every other tool in the family**: author with ORCID, licence,
   source and the concept DOI, in the interface language. Assets move to `?v=3`.

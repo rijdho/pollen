@@ -300,7 +300,7 @@ decoding the new matrix would make that test vacuous.**
 
 ## Where this is, 2026-09-22
 
-Public, released, deployed and citable. v1.8.0 is the last tag and what runs at
+Public, released, deployed and citable. v1.9.0 is the last tag and what runs at
 `pollen.rijdho.org`, with the deployed files compared to the tree by hash rather than by
 trusting a deploy log, and the one new action exercised against the live deployment in a
 room opened and closed for the purpose. Its version DOI is recorded in the commit after the tag, because
@@ -371,7 +371,7 @@ Decided and closed, so they are not debt:
   `imagefile.js`; below that text stops being readable, so an image that will not fit is
   refused with a named cause instead.
 
-**No work is unreleased.** v1.8.0 is the last tag and what runs at `pollen.rijdho.org`;
+**No work is unreleased.** v1.9.0 is the last tag and what runs at `pollen.rijdho.org`;
 what sits on `main` ahead of it is the version DOI record. When the next one
 is worth a DOI: the concept DOI never changes, and the version DOI replaces its
 predecessor in `CITATION.cff` rather than accumulating beside it, because superseded
