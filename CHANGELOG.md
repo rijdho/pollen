@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The abstract in `CITATION.cff` names the address where the tool runs, so the Zenodo record
+  leads to it and not only to the repository.
+
 ## [1.9.0]: 2026-09-24
 
 ### Changed
