@@ -18,6 +18,7 @@ abstract: >-
   Cloudflare or on any machine with Node from the same code, deployable to
   anyone's own account or server with nothing to configure and no database to
   connect.
+  A hosted instance runs at https://pollen.rijdho.org/.
 type: software
 authors:
   - family-names: "Hartley Belmar"
